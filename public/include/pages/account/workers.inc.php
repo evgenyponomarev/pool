@@ -12,7 +12,7 @@ if ($user->isAuthenticated()) {
     }
     break;
   case 'add':
-    if ($worker->addWorker($_SESSION['USERDATA']['id'], $_POST['username'], $_POST['password'])) {
+    if ($worker->addWorker($_SESSION['USERDATA']['id'], $_POST['username'], $_POST['password'], $_POST['coin'])) {
       $_SESSION['POPUP'][] = array('CONTENT' => 'Worker added');
     } else {
       $_SESSION['POPUP'][] = array('CONTENT' => $worker->getError(), 'TYPE' => 'errormsg');
@@ -32,6 +32,9 @@ if ($user->isAuthenticated()) {
 
   $smarty->assign('WORKERS', $aWorkers);
 }
+
+$coins = $oCoin->getCoins();
+$smarty->assign('COINS', $coins);
 
 $smarty->assign('CONTENT', 'default.tpl');
 

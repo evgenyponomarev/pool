@@ -49,6 +49,9 @@ class Base {
   public function setBlock($block) {
     $this->block = $block;
   }
+    public function setCoin($coin) {
+        $this->coin = $coin;
+    }
   public function setTransaction($transaction) {
     $this->transaction = $transaction;
   }
@@ -66,6 +69,9 @@ class Base {
   }
   public function setBitcoin($bitcoin) {
     $this->bitcoin = $bitcoin;
+  }
+  public function setWallets($wallets) {
+      $this->wallets = $wallets;
   }
   public function setTokenType($tokentype) {
     $this->tokentype = $tokentype;

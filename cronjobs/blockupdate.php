@@ -25,34 +25,37 @@ chdir(dirname(__FILE__));
 // Include all settings and classes
 require_once('shared.inc.php');
 
-if ( $bitcoin->can_connect() !== true ) {
-  $log->logFatal("Failed to connect to RPC server\n");
-  $monitoring->endCronjob($cron_name, 'E0006', 1, true);
-}
+foreach($wallets as $coin => $wallet) {
+    if ( $wallet->can_connect() !== true ) {
+        $log->logFatal("Failed to connect to RPC server\n");
+        $monitoring->endCronjob($cron_name, 'E0006', 1, true);
+    }
 
 // Fetch all unconfirmed blocks
-$aAllBlocks = $block->getAllUnconfirmed(max($config['network_confirmations'],$config['confirmations']));
+    $aAllBlocks = $block->getAllUnconfirmed($coin, max($config['network_confirmations'],$config['confirmations']));
 
-$log->logInfo("ID\tHeight\tBlockhash\tConfirmations");
-foreach ($aAllBlocks as $iIndex => $aBlock) {
-  $aBlockInfo = $bitcoin->getblock($aBlock['blockhash']);
-  // Fetch this blocks transaction details to find orphan blocks
-  $aTxDetails = $bitcoin->gettransaction($aBlockInfo['tx'][0]);
-  $log->logInfo($aBlock['id'] . "\t" . $aBlock['height'] .  "\t" . $aBlock['blockhash'] . "\t" . $aBlock['confirmations'] . " -> " . $aBlockInfo['confirmations']);
-  if ($aTxDetails['details'][0]['category'] == 'orphan') {
-    // We have an orphaned block, we need to invalidate all transactions for this one
-    if ($block->setConfirmations($aBlock['id'], -1)) {
-      $log->logInfo("    Block marked as orphan");
-    } else {
-      $log->logError("    Block became orphaned but unable to update database entries");
+    $log->logInfo("ID\tHeight\tBlockhash\tConfirmations");
+    foreach ($aAllBlocks as $iIndex => $aBlock) {
+        $aBlockInfo = $wallet->getblock($aBlock['blockhash']);
+        // Fetch this blocks transaction details to find orphan blocks
+        $aTxDetails = $wallet->gettransaction($aBlockInfo['tx'][0]);
+        $log->logInfo($aBlock['id'] . "\t" . $aBlock['height'] .  "\t" . $aBlock['blockhash'] . "\t" . $aBlock['confirmations'] . " -> " . $aBlockInfo['confirmations']);
+        if ($aTxDetails['details'][0]['category'] == 'orphan') {
+            // We have an orphaned block, we need to invalidate all transactions for this one
+            if ($block->setConfirmations($aBlock['id'], -1)) {
+                $log->logInfo("    Block marked as orphan");
+            } else {
+                $log->logError("    Block became orphaned but unable to update database entries");
+            }
+            continue;
+        }
+        if ($aBlock['confirmations'] == $aBlockInfo['confirmations']) {
+            $log->logDebug('    No update needed');
+        } else if (!$block->setConfirmations($aBlock['id'], $aBlockInfo['confirmations'])) {
+            $log->logError('    Failed to update block confirmations: ' . $block->getCronMessage());
+        }
     }
-    continue;
-  }
-  if ($aBlock['confirmations'] == $aBlockInfo['confirmations']) {
-    $log->logDebug('    No update needed');
-  } else if (!$block->setConfirmations($aBlock['id'], $aBlockInfo['confirmations'])) {
-    $log->logError('    Failed to update block confirmations: ' . $block->getCronMessage());
-  }
+
 }
 
 require_once('cron_end.inc.php');

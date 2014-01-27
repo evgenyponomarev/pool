@@ -37,19 +37,28 @@ $users = $user->getAllAssoc();
 $mask = "| %-35.35s | %-35.35s | %-40.40s | %-7.7s |\n";
 echo 'Validating all coin addresses. This may take some time.' . PHP_EOL . PHP_EOL;
 
-printf($mask, 'Username', 'E-Mail', 'Address', 'Status');
+printf($mask, 'Username', 'E-Mail', 'Addresses', 'Status');
 foreach ($users as $aData) {
-  if (empty($aData['coin_address']) && $aData['is_locked'] == 0) {
-    $status = 'UNSET';
-  } else if ($aData['is_locked'] == 1) {
-    $status = 'LOCKED';
-  } else {
-    $ret = $bitcoin->validateaddress($aData['coin_address']);
-    if ($ret['isvalid']) {
-      $status = 'VALID';
-    } else {
-      $status = 'INVALID';
+    $accountWallets = $user->getCoinAddresses($aData['id']);
+    $status = '';
+    $addresses = '';
+    foreach($accountWallets as $accountWallet) {
+        $addresses .= $coin . " " . $accountWallet['coin_address']."\n";
+        if (empty($accountWallet['coin_address'])) {
+            $status .= "UNSET\n";
+        } else {
+            $ret = $wallets[$coin]->validateaddress($accountWallet['coin_address']);
+            if ($ret['isvalid']) {
+                $status .= "VALID\n";
+            } else {
+                $status .= "INVALID\n";
+            }
+        }
     }
-  }
-  printf($mask, $aData['username'], $aData['email'], $aData['coin_address'], $status);
+
+    if ($aData['is_locked'] == 1) {
+        $status = 'LOCKED';
+    }
+
+    printf($mask, $aData['username'], $aData['email'], $addresses, $status);
 }

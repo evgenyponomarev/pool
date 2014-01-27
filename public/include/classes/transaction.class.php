@@ -18,9 +18,9 @@ class Transaction extends Base {
    * @param coin_address string Coin address for this transaction [optional]
    * @return bool
    **/
-  public function addTransaction($account_id, $amount, $type='Credit', $block_id=NULL, $coin_address=NULL, $txid=NULL) {
-    $stmt = $this->mysqli->prepare("INSERT INTO $this->table (account_id, amount, block_id, type, coin_address, txid) VALUES (?, ?, ?, ?, ?, ?)");
-    if ($this->checkStmt($stmt) && $stmt->bind_param("idisss", $account_id, $amount, $block_id, $type, $coin_address, $txid) && $stmt->execute()) {
+  public function addTransaction($coin, $account_id, $amount, $type='Credit', $block_id=NULL, $coin_address=NULL, $txid=NULL) {
+    $stmt = $this->mysqli->prepare("INSERT INTO $this->table (coin, account_id, amount, block_id, type, coin_address, txid) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    if ($this->checkStmt($stmt) && $stmt->bind_param("sidisss", $coin, $account_id, $amount, $block_id, $type, $coin_address, $txid) && $stmt->execute()) {
       $this->insert_id = $stmt->insert_id;
       return true;
     }
@@ -249,6 +249,7 @@ class Transaction extends Base {
     $this->debug->append("STA " . __METHOD__, 4);
     $stmt = $this->mysqli->prepare("
       SELECT
+        coin,
         IFNULL(ROUND((
           SUM( IF( ( t.type IN ('Credit','Bonus') AND b.confirmations >= ? ) OR t.type = 'Credit_PPS', t.amount, 0 ) ) -
           SUM( IF( t.type IN ('Debit_MP', 'Debit_AP'), t.amount, 0 ) ) -
@@ -267,11 +268,41 @@ class Transaction extends Base {
       ON t.block_id = b.id
       WHERE t.account_id = ?
       AND archived = 0
+      GROUP BY coin
+      ORDER BY coin
       ");
     if ($this->checkStmt($stmt) && $stmt->bind_param("iiiii", $this->config['confirmations'], $this->config['confirmations'], $this->config['confirmations'], $this->config['confirmations'], $account_id) && $stmt->execute() && $result = $stmt->get_result())
-      return $result->fetch_assoc();
+      return $result->fetch_all(MYSQLI_ASSOC);
     return $this->sqlError();
   }
+
+    public function getBalanceCoin($account_id, $coinID) {
+        $this->debug->append("STA " . __METHOD__, 4);
+        $stmt = $this->mysqli->prepare("
+      SELECT
+        IFNULL(ROUND((
+          SUM( IF( ( t.type IN ('Credit','Bonus') AND b.confirmations >= ? ) OR t.type = 'Credit_PPS', t.amount, 0 ) ) -
+          SUM( IF( t.type IN ('Debit_MP', 'Debit_AP'), t.amount, 0 ) ) -
+          SUM( IF( ( t.type IN ('Donation','Fee') AND b.confirmations >= ? ) OR ( t.type IN ('Donation_PPS', 'Fee_PPS', 'TXFee') ), t.amount, 0 ) )
+        ), 8), 0) AS confirmed,
+        IFNULL(ROUND((
+          SUM( IF( t.type IN ('Credit','Bonus') AND b.confirmations < ? AND b.confirmations >= 0, t.amount, 0 ) ) -
+          SUM( IF( t.type IN ('Donation','Fee') AND b.confirmations < ? AND b.confirmations >= 0, t.amount, 0 ) )
+        ), 8), 0) AS unconfirmed,
+        IFNULL(ROUND((
+          SUM( IF( t.type IN ('Credit','Bonus') AND b.confirmations = -1, t.amount, 0) ) -
+          SUM( IF( t.type IN ('Donation','Fee') AND b.confirmations = -1, t.amount, 0) )
+        ), 8), 0) AS orphaned
+      FROM $this->table AS t
+      LEFT JOIN " . $this->block->getTableName() . " AS b
+      ON t.block_id = b.id
+      WHERE t.account_id = ? AND t.coin = ?
+      AND archived = 0
+      ");
+        if ($this->checkStmt($stmt) && $stmt->bind_param("iiiiis", $this->config['confirmations'], $this->config['confirmations'], $this->config['confirmations'], $this->config['confirmations'], $account_id, $coinID) && $stmt->execute() && $result = $stmt->get_result())
+            return $result->fetch_assoc();
+        return $this->sqlError();
+    }
 
   /**
    * Get our Auto Payout queue
@@ -283,9 +314,10 @@ class Transaction extends Base {
     $stmt = $this->mysqli->prepare("
       SELECT
         a.id,
+        t.coin
         a.username,
-        a.ap_threshold,
-        a.coin_address,
+        aw.ap_threshold,
+        aw.coin_address,
         IFNULL(
           ROUND(
             (
@@ -300,14 +332,49 @@ class Transaction extends Base {
       ON t.block_id = b.id
       LEFT JOIN accounts AS a
       ON t.account_id = a.id
-      WHERE t.archived = 0 AND a.ap_threshold > 0
-      GROUP BY t.account_id
-      HAVING confirmed > a.ap_threshold
+      LEFT JOIN account_wallets as aw
+      ON aw.account_id = a.id AND aw.coin = t.coin
+      WHERE t.archived = 0 AND aw.ap_threshold > 0
+      GROUP BY t.account_id, t.coin
+      HAVING confirmed > aw.ap_threshold
       ");
     if ($this->checkStmt($stmt) && $stmt->execute() && $result = $stmt->get_result())
       return $result->fetch_all(MYSQLI_ASSOC);
     return $this->sqlError();
   }
+
+    public function getAPQueueCoin($coinID) {
+        $this->debug->append("STA " . __METHOD__, 4);
+        $stmt = $this->mysqli->prepare("
+      SELECT
+        a.id,
+        a.username,
+        aw.ap_threshold,
+        aw.coin_address,
+        IFNULL(
+          ROUND(
+            (
+              SUM( IF( ( t.type IN ('Credit','Bonus') AND b.confirmations >= " . $this->config['confirmations'] . ") OR t.type = 'Credit_PPS', t.amount, 0 ) ) -
+              SUM( IF( t.type IN ('Debit_MP', 'Debit_AP'), t.amount, 0 ) ) -
+              SUM( IF( ( t.type IN ('Donation','Fee') AND b.confirmations >= " . $this->config['confirmations'] . ") OR ( t.type IN ('Donation_PPS', 'Fee_PPS', 'TXFee') ), t.amount, 0 ) )
+            ), 8
+          ), 0
+        ) AS confirmed
+      FROM transactions AS t
+      LEFT JOIN blocks AS b
+      ON t.block_id = b.id
+      LEFT JOIN accounts AS a
+      ON t.account_id = a.id
+      LEFT JOIN account_wallets as aw
+      ON aw.account_id = a.id AND aw.coin = t.coin
+      WHERE t.archived = 0 AND aw.ap_threshold > 0 AND t.coin = ?
+      GROUP BY t.account_id
+      HAVING confirmed > aw.ap_threshold
+      ");
+        if ($this->checkStmt($stmt) && $stmt->bind_param("s", $coinID) && $stmt->execute() && $result = $stmt->get_result())
+            return $result->fetch_all(MYSQLI_ASSOC);
+        return $this->sqlError();
+    }
 }
 
 $transaction = new Transaction();

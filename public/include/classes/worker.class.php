@@ -29,10 +29,16 @@ class Worker extends Base {
         $iFailed++;
         continue;
       }
-      // Prefix the WebUser to Worker name
+
+        if(!$this->coin->getCoin($value['coin'])) {
+            $coin = $this->coin->getDefaultCoin();
+            $value['coin'] = $coin['id'];
+        }
+
+        // Prefix the WebUser to Worker name
       $value['username'] = "$username." . $value['username'];
-      $stmt = $this->mysqli->prepare("UPDATE $this->table SET password = ?, username = ?, monitor = ? WHERE account_id = ? AND id = ?");
-      if ( ! ( $this->checkStmt($stmt) && $stmt->bind_param('ssiii', $value['password'], $value['username'], $value['monitor'], $account_id, $key) && $stmt->execute()) )
+      $stmt = $this->mysqli->prepare("UPDATE $this->table SET password = ?, username = ?, monitor = ?, coin = ? WHERE account_id = ? AND id = ?");
+      if ( ! ( $this->checkStmt($stmt) && $stmt->bind_param('ssisii', $value['password'], $value['username'], $value['monitor'], $value['coin'], $account_id, $key) && $stmt->execute()) )
         $iFailed++;
       }
     }
@@ -114,7 +120,7 @@ class Worker extends Base {
   public function getWorkers($account_id, $interval=600) {
     $this->debug->append("STA " . __METHOD__, 4);
     $stmt = $this->mysqli->prepare("
-      SELECT id, username, password, monitor,
+      SELECT id, username, password, monitor, coin,
        ( SELECT COUNT(id) FROM " . $this->share->getTableName() . " WHERE username = w.username AND time > DATE_SUB(now(), INTERVAL ? SECOND)) AS count_all,
        ( SELECT COUNT(id) FROM " . $this->share->getArchiveTableName() . " WHERE username = w.username AND time > DATE_SUB(now(), INTERVAL ? SECOND)) AS count_all_archive,
        (
@@ -224,7 +230,7 @@ class Worker extends Base {
    * @param workerPassword string Worker password
    * @return bool
    **/
-  public function addWorker($account_id, $workerName, $workerPassword) {
+  public function addWorker($account_id, $workerName, $workerPassword, $coinID) {
     $this->debug->append("STA " . __METHOD__, 4);
     if ('' === $workerName || '' === $workerPassword) {
       $this->setErrorMessage($this->getErrorMsg('E0058'));
@@ -240,8 +246,14 @@ class Worker extends Base {
       $this->setErrorMessage($this->getErrorMsg('E0073'));
       return false;
     }
-    $stmt = $this->mysqli->prepare("INSERT INTO $this->table (account_id, username, password) VALUES(?, ?, ?)");
-    if ($this->checkStmt($stmt) && $stmt->bind_param('iss', $account_id, $workerName, $workerPassword)) {
+
+    if(!$this->coin->getCoin($coinID)) {
+        $coin = $this->coin->getDefaultCoin();
+        $coinID = $coin['id'];
+    }
+
+    $stmt = $this->mysqli->prepare("INSERT INTO $this->table (account_id, username, password, coin) VALUES(?, ?, ?, ?)");
+    if ($this->checkStmt($stmt) && $stmt->bind_param('isss', $account_id, $workerName, $workerPassword, $coinID)) {
       if (!$stmt->execute()) {
         if ($stmt->sqlstate == '23000') return $this->sqlError('E0059');
       } else {
@@ -267,6 +279,7 @@ class Worker extends Base {
 }
 
 $worker = new Worker();
+$worker->setCoin($oCoin);
 $worker->setDebug($debug);
 $worker->setMysql($mysqli);
 $worker->setMemcache($memcache);

@@ -21,7 +21,10 @@ if ($user->isAuthenticated()) {
         if ($setting->getValue('disable_payouts') == 1 || $setting->getValue('disable_manual_payouts') == 1) {
           $_SESSION['POPUP'][] = array('CONTENT' => 'Manual payouts are disabled.', 'TYPE' => 'info');
         } else {
-          $aBalance = $transaction->getBalance($_SESSION['USERDATA']['id']);
+          $coinID = $_POST['coin'];
+          $aCoin = $oCoin->getCoin($coinID);
+
+          $aBalance = $transaction->getBalance($_SESSION['USERDATA']['id'], $aCoin['id']);
           $dBalance = $aBalance['confirmed'];
           if ($dBalance > $config['txfee']) {
             if (!$oPayout->isPayoutActive($_SESSION['USERDATA']['id'])) {
@@ -40,7 +43,7 @@ if ($user->isAuthenticated()) {
         break;
 
       case 'updateAccount':
-        if ($user->updateAccount($_SESSION['USERDATA']['id'], $_POST['paymentAddress'], $_POST['payoutThreshold'], $_POST['donatePercent'], $_POST['email'], $_POST['is_anonymous'])) {
+        if ($user->updateAccount($_SESSION['USERDATA']['id'], $_POST['paymentAddresses'], $_POST['payoutThresholds'], $_POST['donatePercents'], $_POST['email'], $_POST['is_anonymous'])) {
           $_SESSION['POPUP'][] = array('CONTENT' => 'Account details updated', 'TYPE' => 'success');
         } else {
           $_SESSION['POPUP'][] = array('CONTENT' => 'Failed to update your account: ' . $user->getError(), 'TYPE' => 'errormsg');
@@ -58,6 +61,17 @@ if ($user->isAuthenticated()) {
     }
   }
 }
+
+$paymentAddresses = $user->getAccountWallets($_SESSION['USERDATA']['id']);
+$smarty->assign('PAYMENTADDRESSES', $paymentAddresses);
+
+$coins = $oCoin->getCoins();
+$smarty->assign('COINS', $coins);
+
+$coins = $oCoin->getCoins();
+$smarty->assign('BALANCES', $coins);
+
+
 // Tempalte specifics
 $smarty->assign("CONTENT", "default.tpl");
 ?>

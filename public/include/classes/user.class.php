@@ -236,10 +236,59 @@ class User extends Base {
    * @param userID int UserID
    * @return data string Coin Address
    **/
-  public function getCoinAddress($userID) {
+  public function getCoinAddress($userID, $coinID) {
     $this->debug->append("STA " . __METHOD__, 4);
-    return $this->getSingle($userID, 'coin_address', 'id');
+    //return $this->getSingle($userID, 'coin_address', 'id');
+      $sql = "
+      SELECT
+        coin_address
+      FROM account_wallets
+      WHERE account_id = ? AND coin = ?
+      ";
+      $stmt = $this->mysqli->prepare($sql);
+      if ($this->checkStmt($stmt)) {
+          $stmt->bind_param('is', $userID, $coinID);
+          $stmt->execute();
+          $stmt->bind_result($retval);
+          $stmt->fetch();
+          $stmt->close();
+          return $retval;
+      }
+      return false;
   }
+
+    public function getCoinAddresses($userID) {
+        $this->debug->append("STA " . __METHOD__, 4);
+        $stmt = $this->mysqli->prepare("
+      SELECT
+        coin, coin_address
+      FROM account_wallets
+      WHERE ap_threshold > 0
+      AND account_id = ?
+      ORDER BY coin
+      ");
+        if ( $this->checkStmt($stmt) && $stmt->bind_param('i', $userID) && $stmt->execute() && $result = $stmt->get_result()) {
+            return $result->fetch_all(MYSQLI_ASSOC);
+        }
+        $this->debug->append("Unable to fetch wallets with account_id set");
+        return false;
+    }
+
+    public function getAccountWallets($userID) {
+        $this->debug->append("STA " . __METHOD__, 4);
+        $stmt = $this->mysqli->prepare("
+      SELECT
+        coin, coin_address, donate_percent, ap_threshold
+      FROM account_wallets
+      WHERE account_id = ?
+      ORDER BY coin
+      ");
+        if ( $this->checkStmt($stmt) && $stmt->bind_param('i', $userID) && $stmt->execute() && $result = $stmt->get_result()) {
+            return $result->fetch_all(MYSQLI_ASSOC);
+        }
+        $this->debug->append("Unable to fetch wallets with account_id set");
+        return false;
+    }
 
   /**
    * Fetch users donation value 
@@ -253,6 +302,28 @@ class User extends Base {
     if ($dPercent < 0) $dPercent = 0;
     return $dPercent;
   }
+
+    public function getDonatePercentByCoin($userID, $coinID) {
+        $this->debug->append("STA " . __METHOD__, 4);
+        $sql = "
+      SELECT
+        donate_percent
+      FROM account_wallets
+      WHERE account_id = ? AND coin = ?
+      ";
+        $stmt = $this->mysqli->prepare($sql);
+        if ($this->checkStmt($stmt)) {
+            $stmt->bind_param('is', $userID, $coinID);
+            $stmt->execute();
+            $stmt->bind_result($dPercent);
+            $stmt->fetch();
+            $stmt->close();
+            if ($dPercent > 100) $dPercent = 100;
+            if ($dPercent < 0) $dPercent = 0;
+            return $dPercent;
+        }
+        return false;
+    }
 
   /**
    * Update the accounts password
@@ -295,60 +366,81 @@ class User extends Base {
    * @param donat float donation % of income
    * @return bool
    **/
-  public function updateAccount($userID, $address, $threshold, $donate, $email, $is_anonymous) {
+  public function updateAccount($userID, $addresses, $thresholds, $donates, $email, $is_anonymous) {
     $this->debug->append("STA " . __METHOD__, 4);
     $bUser = false;
 
+    $updatedThresholds = array();
+    $updatedDonates = array();
+
     // number validation checks
-    if (!is_numeric($threshold)) {
-      $this->setErrorMessage('Invalid input for auto-payout');
-      return false;
-    } else if ($threshold < $this->config['ap_threshold']['min'] && $threshold != 0) {
-      $this->setErrorMessage('Threshold below configured minimum of ' . $this->config['ap_threshold']['min']);
-      return false;
-    } else if ($threshold > $this->config['ap_threshold']['max']) {
-      $this->setErrorMessage('Threshold above configured maximum of ' . $this->config['ap_threshold']['max']);
-      return false;
-    }
-    if (!is_numeric($donate)) {
-      $this->setErrorMessage('Invalid input for donation');
-      return false;
-    } else if ($donate < 0) {
-      $this->setErrorMessage('Donation below allowed 0% limit');
-      return false;
-    } else if ($donate > 100) {
-      $this->setErrorMessage('Donation above allowed 100% limit');
-      return false;
-    }
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-      $this->setErrorMessage('Invalid email address');
-      return false;
-    }
-    if (!empty($address)) {
-      if ($this->bitcoin->can_connect() === true) {
-        try {
-          $aStatus = $this->bitcoin->validateaddress($address);
-          if (!$aStatus['isvalid']) {
-            $this->setErrorMessage('Invalid coin address');
-            return false;
-          }
-        } catch (Exception $e) {
-          $this->setErrorMessage('Unable to verify coin address');
+    foreach($thresholds as $coin => $threshold) {
+        if (!is_numeric($threshold)) {
+          $this->setErrorMessage('Invalid input for auto-payout');
+          return false;
+        } else if ($threshold < $this->config['ap_threshold']['min'] && $threshold != 0) {
+          $this->setErrorMessage('Threshold below configured minimum of ' . $this->config['ap_threshold']['min']);
+          return false;
+        } else if ($threshold > $this->config['ap_threshold']['max']) {
+          $this->setErrorMessage('Threshold above configured maximum of ' . $this->config['ap_threshold']['max']);
           return false;
         }
-      } else {
-        $this->setErrorMessage('Unable to connect to RPC server for coin address validation');
+
+        // Number sanitizer, just in case we fall through above
+        $updatedThresholds[$coin] = min($this->config['ap_threshold']['max'], max(0, floatval($threshold)));
+    }
+    foreach($donates as $coin => $donate) {
+        if (!is_numeric($donate)) {
+          $this->setErrorMessage('Invalid input for donation');
+          return false;
+        } else if ($donate < 0) {
+          $this->setErrorMessage('Donation below allowed 0% limit');
+          return false;
+        } else if ($donate > 100) {
+          $this->setErrorMessage('Donation above allowed 100% limit');
+          return false;
+        }
+
+        $updatedDonates[$coin] = min(100, max(0, floatval($donate)));
+    }
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $this->setErrorMessage('Invalid email address');
         return false;
-      }
     }
 
-    // Number sanitizer, just in case we fall through above
-    $threshold = min($this->config['ap_threshold']['max'], max(0, floatval($threshold)));
-    $donate = min(100, max(0, floatval($donate)));
+    $userAddresses = $this->getCoinAddresses($userID);
+    $updatedAddresses = array_diff_assoc($addresses, $userAddresses);
+
+    if (count($updatedAddresses) > 0) {
+        foreach($updatedAddresses as $coin => $address) {
+          if ($this->wallets[$coin]->can_connect($coin) === true) {
+            try {
+              $aStatus = $this->wallets[$coin]->validateaddress($address);
+              if (!$aStatus['isvalid']) {
+                $this->setErrorMessage('Invalid coin address');
+                return false;
+              }
+            } catch (Exception $e) {
+              $this->setErrorMessage('Unable to verify coin address');
+              return false;
+            }
+          } else {
+            $this->setErrorMessage('Unable to connect to RPC server for coin address validation');
+            return false;
+          }
+        }
+    }
+
+    foreach($updatedAddresses as $coin => $address) {
+        $stmt = $this->mysqli->prepare("UPDATE account_wallets SET coin_address = ?, ap_threshold = ?, donate_percent = ? WHERE account_id = ? AND coin = ?");
+        if ($this->checkStmt($stmt) && $stmt->bind_param('sddis', $address, $updatedThresholds[$coin], $updatedDonates[$coin], $userID, $coin) && $stmt->execute()) {
+        }
+        else return false;
+    }
 
     // We passed all validation checks so update the account
-    $stmt = $this->mysqli->prepare("UPDATE $this->table SET coin_address = ?, ap_threshold = ?, donate_percent = ?, email = ?, is_anonymous = ? WHERE id = ?");
-    if ($this->checkStmt($stmt) && $stmt->bind_param('sddsii', $address, $threshold, $donate, $email, $is_anonymous, $userID) && $stmt->execute())
+    $stmt = $this->mysqli->prepare("UPDATE $this->table SET email = ?, is_anonymous = ? WHERE id = ?");
+    if ($this->checkStmt($stmt) && $stmt->bind_param('sii', $email, $is_anonymous, $userID) && $stmt->execute())
       return true;
     // Catchall
     $this->setErrorMessage('Failed to update your account');
@@ -711,6 +803,6 @@ $user->setSalt(SALT);
 $user->setConfig($config);
 $user->setMail($mail);
 $user->setToken($oToken);
-$user->setBitcoin($bitcoin);
+$user->setWallets($wallets);
 $user->setSetting($setting);
 $user->setErrorCodes($aErrorCodes);

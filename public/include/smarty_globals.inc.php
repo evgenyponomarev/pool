@@ -15,9 +15,12 @@ if (!$aRoundShares = $statistics->getRoundShares()) {
   $aRoundShares = array('valid' => 0, 'invalid' => 0);
 }
 
-if ($bitcoin->can_connect() === true) {
-  $dDifficulty = $bitcoin->getdifficulty();
-  $dNetworkHashrate = $bitcoin->getnetworkhashps();
+//lets take the first cryptocurrency
+$wallets_arr = array_values($wallets);
+$wallet = $wallets_arr[0];
+if ($wallet->can_connect() === true) {
+  $dDifficulty = $wallet->getdifficulty();
+  $dNetworkHashrate = $wallet->getnetworkhashps();
 } else {
   $dDifficulty = 1;
   $dNetworkHashrate = 0;

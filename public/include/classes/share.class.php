@@ -70,6 +70,13 @@ class Share Extends Base {
     return $this->sqlError();
   }
 
+    public function getLastInsertedShareIdByCoin($coinID) {
+        $stmt = $this->mysqli->prepare("SELECT MAX(id) AS id FROM $this->table WHERE coin = ? ");
+        if ($this->checkStmt($stmt) && $stmt->bind_result("s", $coinID) && $stmt->execute() && $result = $stmt->get_result())
+            return $result->fetch_object()->id;
+        return $this->sqlError();
+    }
+
   /**
    * Get all valid shares for this round
    * @param previous_upstream int Previous found share accepted by upstream to limit results
@@ -87,6 +94,18 @@ class Share Extends Base {
       return $result->fetch_object()->total;
     return $this->sqlError();
   }
+
+    public function getRoundSharesByCoin($coinID, $previous_upstream=0, $current_upstream) {
+        $stmt = $this->mysqli->prepare("SELECT
+      ROUND(IFNULL(SUM(IF(difficulty=0, POW(2, (" . $this->config['difficulty'] . " - 16)), difficulty)), 0) / POW(2, (" . $this->config['difficulty'] . " - 16)), 8) AS total
+      FROM $this->table
+      WHERE our_result = 'Y'
+      AND id > ? AND id <= ? AND coin = ?
+      ");
+        if ($this->checkStmt($stmt) && $stmt->bind_param('iis', $previous_upstream, $current_upstream, $coinID) && $stmt->execute() && $result = $stmt->get_result())
+            return $result->fetch_object()->total;
+        return $this->sqlError();
+    }
 
   /**
    * Fetch all shares grouped by accounts to count share per account
@@ -114,6 +133,25 @@ class Share Extends Base {
     return $this->sqlError();
   }
 
+    public function getSharesForAccountsByCoin($coinID, $previous_upstream=0, $current_upstream) {
+        $stmt = $this->mysqli->prepare("
+      SELECT
+        a.id,
+        SUBSTRING_INDEX( s.username , '.', 1 ) as username,
+        a.no_fees AS no_fees,
+        ROUND(IFNULL(SUM(IF(our_result='Y', IF(s.difficulty=0, POW(2, (" . $this->config['difficulty'] . " - 16)), s.difficulty), 0)), 0) / POW(2, (" . $this->config['difficulty'] . " - 16)), 8) AS valid,
+        ROUND(IFNULL(SUM(IF(our_result='N', IF(s.difficulty=0, POW(2, (" . $this->config['difficulty'] . " - 16)), s.difficulty), 0)), 0) / POW(2, (" . $this->config['difficulty'] . " - 16)), 8) AS invalid
+      FROM $this->table AS s
+      LEFT JOIN " . $this->user->getTableName() . " AS a
+      ON a.username = SUBSTRING_INDEX( s.username , '.', 1 )
+      WHERE s.id > ? AND s.id <= ? AND s.coin = ?
+      GROUP BY username DESC
+      ");
+        if ($this->checkStmt($stmt) && $stmt->bind_param('iis', $previous_upstream, $current_upstream, $coinID) && $stmt->execute() && $result = $stmt->get_result())
+            return $result->fetch_all(MYSQLI_ASSOC);
+        return $this->sqlError();
+    }
+
   /**
    * Fetch the highest available share ID
    **/
@@ -133,6 +171,13 @@ class Share Extends Base {
       return $result->fetch_object()->share_id;
     return $this->sqlError();
   }
+
+    function getMaxArchiveShareIdByCoin($coinID) {
+        $stmt = $this->mysqli->prepare("SELECT MAX(share_id) AS share_id FROM $this->tableArchive WHERE coin = ? ");
+        if ($this->checkStmt($stmt) && $stmt->bind_param("s", $coinID) && $stmt->execute() && $result = $stmt->get_result())
+            return $result->fetch_object()->share_id;
+        return $this->sqlError();
+    }
 
   /**
    * We need a certain amount of valid archived shares
@@ -164,6 +209,31 @@ class Share Extends Base {
     }
     return $this->sqlError();
   }
+
+    function getArchiveSharesByCoin($coinID, $iCount) {
+        $iMinId = $this->getMinArchiveShareIdByCoin($coinID, $iCount);
+        $iMaxId = $this->getMaxArchiveShareIdByCoin($coinID);
+        $stmt = $this->mysqli->prepare("
+      SELECT
+        a.id,
+        SUBSTRING_INDEX( s.username , '.', 1 ) as account,
+        a.no_fees AS no_fees,
+        ROUND(IFNULL(SUM(IF(our_result='Y', IF(s.difficulty=0, pow(2, (" . $this->config['difficulty'] . " - 16)), s.difficulty), 0)), 0) / POW(2, (" . $this->config['difficulty'] . " - 16)), 8) AS valid,
+        ROUND(IFNULL(SUM(IF(our_result='N', IF(s.difficulty=0, pow(2, (" . $this->config['difficulty'] . " - 16)), s.difficulty), 0)), 0) / POW(2, (" . $this->config['difficulty'] . " - 16)), 8) AS invalid
+      FROM $this->tableArchive AS s
+      LEFT JOIN " . $this->user->getTableName() . " AS a
+      ON a.username = SUBSTRING_INDEX( s.username , '.', 1 )
+      WHERE s.share_id > ? AND s.share_id <= ? AND coin = ?
+      GROUP BY account DESC");
+        if ($this->checkStmt($stmt) && $stmt->bind_param("iis", $iMinId, $iMaxId, $coinID) && $stmt->execute() && $result = $stmt->get_result()) {
+            $aData = NULL;
+            while ($row = $result->fetch_assoc()) {
+                $aData[$row['account']] = $row;
+            }
+            if (is_array($aData)) return $aData;
+        }
+        return $this->sqlError();
+    }
 
   /**
    * We keep shares only up to a certain point
@@ -358,6 +428,85 @@ class Share Extends Base {
     return false;
   }
 
+    public function findUpstreamShareByCoin($coinID, $aBlock, $last=0) {
+        // Many use stratum, so we create our stratum check first
+        $version = pack("I*", sprintf('%08d', $aBlock['version']));
+        $previousblockhash = pack("H*", swapEndian($aBlock['previousblockhash']));
+        $merkleroot = pack("H*", swapEndian($aBlock['merkleroot']) );
+        $time = pack("I*", $aBlock['time']);
+        $bits = pack("H*", swapEndian($aBlock['bits']));
+        $nonce = pack("I*", $aBlock['nonce']);
+        $header_bin = $version .  $previousblockhash . $merkleroot . $time .  $bits . $nonce;
+        $header_hex = implode(unpack("H*", $header_bin));
+
+        // Stratum supported blockhash solution entry
+        $stmt = $this->mysqli->prepare("SELECT SUBSTRING_INDEX( `username` , '.', 1 ) AS account, username as worker, id FROM $this->table WHERE solution = ? AND coin = ? LIMIT 1");
+        if ($this->checkStmt($stmt) && $stmt->bind_param('ss', $aBlock['hash'], $coinID) && $stmt->execute() && $result = $stmt->get_result()) {
+            $this->oUpstream = $result->fetch_object();
+            $this->share_type = 'stratum_blockhash';
+            if (!empty($this->oUpstream->account) && !empty($this->oUpstream->worker) && is_int($this->oUpstream->id))
+                return true;
+        }
+
+        // Stratum scrypt hash check
+        $scrypt_hash = swapEndian(bin2hex(Scrypt::calc($header_bin, $header_bin, 1024, 1, 1, 32)));
+        $stmt = $this->mysqli->prepare("SELECT SUBSTRING_INDEX( `username` , '.', 1 ) AS account, username as worker, id FROM $this->table WHERE solution = ? AND coin = ? LIMIT 1");
+        if ($this->checkStmt($stmt) && $stmt->bind_param('ss', $scrypt_hash, $coinID) && $stmt->execute() && $result = $stmt->get_result()) {
+            $this->oUpstream = $result->fetch_object();
+            $this->share_type = 'stratum_solution';
+            if (!empty($this->oUpstream->account) && !empty($this->oUpstream->worker) && is_int($this->oUpstream->id))
+                return true;
+        }
+
+        // Failed to fetch via startum solution, try pushpoold
+        // Fallback to pushpoold solution type
+        $ppheader = sprintf('%08d', $aBlock['version']) . word_reverse($aBlock['previousblockhash']) . word_reverse($aBlock['merkleroot']) . dechex($aBlock['time']) . $aBlock['bits'] . dechex($aBlock['nonce']);
+        $stmt = $this->mysqli->prepare("SELECT SUBSTRING_INDEX( `username` , '.', 1 ) AS account, username as worker, id FROM $this->table WHERE solution LIKE CONCAT(?, '%') AND coin = ? LIMIT 1");
+        if ($this->checkStmt($stmt) && $stmt->bind_param('ss', $ppheader, $coinID) && $stmt->execute() && $result = $stmt->get_result()) {
+            $this->oUpstream = $result->fetch_object();
+            $this->share_type = 'pp_solution';
+            if (!empty($this->oUpstream->account) && !empty($this->oUpstream->worker) && is_int($this->oUpstream->id))
+                return true;
+        }
+
+        // Still no match, try upstream result with timerange
+        $stmt = $this->mysqli->prepare("
+      SELECT
+      SUBSTRING_INDEX( `username` , '.', 1 ) AS account, username as worker, id
+      FROM $this->table
+      WHERE upstream_result = 'Y'
+      AND id > ?
+      AND UNIX_TIMESTAMP(time) >= ?
+      AND UNIX_TIMESTAMP(time) <= ( ? + 60 )
+      AND coin = ?
+      ORDER BY id ASC LIMIT 1");
+        if ($this->checkStmt($stmt) && $stmt->bind_param('iiis', $last, $aBlock['time'], $aBlock['time'], $coinID) && $stmt->execute() && $result = $stmt->get_result()) {
+            $this->oUpstream = $result->fetch_object();
+            $this->share_type = 'upstream_share';
+            if (!empty($this->oUpstream->account) && !empty($this->oUpstream->worker) && is_int($this->oUpstream->id))
+                return true;
+        }
+
+        // We failed again, now we take ANY result matching the timestamp
+        $stmt = $this->mysqli->prepare("
+      SELECT
+      SUBSTRING_INDEX( `username` , '.', 1 ) AS account, username as worker, id
+      FROM $this->table
+      WHERE our_result = 'Y'
+      AND id > ?
+      AND UNIX_TIMESTAMP(time) >= ?
+      AND coin = ?
+      ORDER BY id ASC LIMIT 1");
+        if ($this->checkStmt($stmt) && $stmt->bind_param('iis', $last, $aBlock['time'], $coinID) && $stmt->execute() && $result = $stmt->get_result()) {
+            $this->oUpstream = $result->fetch_object();
+            $this->share_type = 'any_share';
+            if (!empty($this->oUpstream->account) && !empty($this->oUpstream->worker) && is_int($this->oUpstream->id))
+                return true;
+        }
+        $this->setErrorMessage($this->getErrorMsg('E0052', $aBlock['height']));
+        return false;
+    }
+
   /**
    * Fetch the lowest needed share ID from shares
    **/
@@ -378,6 +527,24 @@ class Share Extends Base {
       return $result->fetch_object()->id;
     return $this->sqlError();
   }
+
+    function getMinimumShareIdByCoin($coinID, $iCount, $current_upstream) {
+        // We don't use baseline here to be more accurate
+        $iCount = $iCount * pow(2, ($this->config['difficulty'] - 16));
+        $stmt = $this->mysqli->prepare("
+      SELECT MIN(b.id) AS id FROM
+      (
+        SELECT id, @total := @total + IF(difficulty=0, POW(2, (" . $this->config['difficulty'] . " - 16)), difficulty) AS total
+        FROM $this->table, (SELECT @total := 0) AS a
+        WHERE our_result = 'Y'
+        AND id <= ? AND @total < ? AND coin = ?
+        ORDER BY id DESC
+      ) AS b
+      WHERE total <= ?");
+        if ($this->checkStmt($stmt) && $stmt->bind_param('iisi', $current_upstream, $iCount, $coinID, $iCount) && $stmt->execute() && $result = $stmt->get_result())
+            return $result->fetch_object()->id;
+        return $this->sqlError();
+    }
 
   /**
    * Fetch the lowest needed share ID from archive
@@ -400,6 +567,25 @@ class Share Extends Base {
       return $result->fetch_object()->share_id;
     return $this->sqlError();
   }
+
+    function getMinArchiveShareIdByCoin($coinID, $iCount) {
+        // We don't use baseline here to be more accurate
+        $iCount = $iCount * pow(2, ($this->config['difficulty'] - 16));
+        $stmt = $this->mysqli->prepare("
+      SELECT MIN(b.share_id) AS share_id FROM
+      (
+        SELECT share_id, @total := @total + IF(difficulty=0, POW(2, (" . $this->config['difficulty'] . " - 16)), difficulty) AS total
+        FROM $this->tableArchive, (SELECT @total := 0) AS a
+        WHERE our_result = 'Y'
+        AND @total < ? AND coin = ?
+        ORDER BY share_id DESC
+      ) AS b
+      WHERE total <= ?
+      ");
+        if ($this->checkStmt($stmt) && $stmt->bind_param('isi', $iCount, $coinID, $iCount) && $stmt->execute() && $result = $stmt->get_result())
+            return $result->fetch_object()->share_id;
+        return $this->sqlError();
+    }
 }
 
 $share = new Share();

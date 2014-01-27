@@ -18,6 +18,13 @@ class Block extends Base {
     return $this->sqlError();
   }
 
+    public function getLastByCoin($coinID) {
+        $stmt = $this->mysqli->prepare("SELECT * FROM $this->table WHERE coin = ? ORDER BY height DESC LIMIT 1");
+        if ($this->checkStmt($stmt) && $stmt->bind_param("s", $coinID) && $stmt->execute() && $result = $stmt->get_result())
+            return $result->fetch_assoc();
+        return $this->sqlError();
+    }
+
   /**
    * Get a specific block, by block height
    * @param height int Block Height
@@ -66,6 +73,13 @@ class Block extends Base {
     return $this->sqlError();
   }
 
+    public function getLastShareIdByCoin($coinID) {
+        $stmt = $this->mysqli->prepare("SELECT MAX(share_id) AS share_id FROM $this->table WHERE coin = ? LIMIT 1");
+        if ($this->checkStmt($stmt) && $stmt->bind_result("s", $coinID) && $stmt->execute() && $result = $stmt->get_result())
+            return $result->fetch_object()->share_id;
+        return $this->sqlError();
+    }
+
   /**
    * Fetch all blocks without a share ID
    * @param order string Sort order, default ASC
@@ -77,6 +91,13 @@ class Block extends Base {
       return $result->fetch_all(MYSQLI_ASSOC);
     return $this->sqlError(); 
   }
+
+    public function getAllUnsetShareIdByCoin($coinID, $order='ASC') {
+        $stmt = $this->mysqli->prepare("SELECT * FROM $this->table WHERE ISNULL(share_id) AND coin = ? ORDER BY height $order");
+        if ($this->checkStmt($stmt) && $stmt->bind_param("s", $coinID) && $stmt->execute() && $result = $stmt->get_result())
+            return $result->fetch_all(MYSQLI_ASSOC);
+        return $this->sqlError();
+    }
 
   /**
    * Fetch all unaccounted blocks
@@ -90,6 +111,13 @@ class Block extends Base {
     return $this->sqlError();
   }
 
+    public function getAllUnaccountedByCoin($coinID, $order='ASC') {
+        $stmt = $this->mysqli->prepare("SELECT * FROM $this->table WHERE accounted = 0 AND coin = ? ORDER BY height $order");
+        if ($this->checkStmt($stmt) && $stmt->bind_param("s", $coinID) && $stmt->execute() && $result = $stmt->get_result())
+            return $result->fetch_all(MYSQLI_ASSOC);
+        return $this->sqlError();
+    }
+
   /**
    * Get total amount of blocks in our table
    * @param noone
@@ -101,6 +129,13 @@ class Block extends Base {
       return (int)$result->fetch_object()->blocks;
     return $this->sqlError();
   }
+
+    public function getBlockCountByCoin($coinID) {
+        $stmt = $this->mysqli->prepare("SELECT COUNT(id) AS blocks FROM $this->table WHERE coin = ? ");
+        if ($this->checkStmt($stmt) && $stmt->bind_param("s", $coinID) && $stmt->execute() && $result = $stmt->get_result())
+            return (int)$result->fetch_object()->blocks;
+        return $this->sqlError();
+    }
 
   /**
    * Fetch our average share count for the past N blocks
@@ -114,6 +149,13 @@ class Block extends Base {
     return $this->sqlError();
   }
 
+    public function getAvgBlockSharesByCoin($coinID, $height, $limit=1) {
+        $stmt = $this->mysqli->prepare("SELECT AVG(x.shares) AS average FROM (SELECT shares FROM $this->table WHERE height <= ? AND coin = ? ORDER BY height DESC LIMIT ?) AS x");
+        if ($this->checkStmt($stmt) && $stmt->bind_param('isi', $height, $coinID, $limit) && $stmt->execute() && $result = $stmt->get_result())
+            return (float)$result->fetch_object()->average;
+        return $this->sqlError();
+    }
+
   /**
    * Fetch our average rewards for the past N blocks
    * @param limit int Maximum blocks to check
@@ -126,6 +168,13 @@ class Block extends Base {
     return $this->sqlError();
   }
 
+    public function getAvgBlockRewardByCoin($coinID, $limit=1) {
+        $stmt = $this->mysqli->prepare("SELECT AVG(x.amount) AS average FROM (SELECT amount FROM $this->table WHERE coin = ? ORDER BY height DESC LIMIT ?) AS x");
+        if ($this->checkStmt($stmt) && $stmt->bind_param('si', $coinID, $limit) && $stmt->execute() && $result = $stmt->get_result())
+            return (float)$result->fetch_object()->average;
+        return $this->sqlError();
+    }
+
   /**
    * Fetch all unconfirmed blocks from table
    * @param confirmations int Required confirmations to consider block confirmed
@@ -137,6 +186,13 @@ class Block extends Base {
       return $result->fetch_all(MYSQLI_ASSOC);
     return $this->sqlError();
   }
+
+    public function getAllUnconfirmedCoin($coinID, $confirmations=120) {
+        $stmt = $this->mysqli->prepare("SELECT * FROM $this->table WHERE confirmations < ? AND confirmations > -1 AND coin = ?");
+        if ($this->checkStmt($stmt) && $stmt->bind_param("is", $confirmations, $coinID) && $stmt->execute() && $result = $stmt->get_result())
+            return $result->fetch_all(MYSQLI_ASSOC);
+        return $this->sqlError();
+    }
 
   /**
    * Update confirmations for an existing block

@@ -74,5 +74,28 @@ class BitcoinWrapper extends BitcoinClient {
   }
 }
 
-// Load this wrapper
-$bitcoin = new BitcoinWrapper($config['wallet']['type'], $config['wallet']['username'], $config['wallet']['password'], $config['wallet']['host'], $debug, $memcache);
+Class WalletRunner extends Base {
+    public function runWallets() {
+        $wallets = array();
+        $stmt = $this->mysqli->prepare("SELECT * FROM coins");
+        if ($this->checkStmt($stmt) && $stmt->execute() && $result = $stmt->get_result()) {
+            foreach($result->fetch_all(MYSQLI_ASSOC) as $coin) {
+                if(!$coin['wallet_type']) continue;
+                $wallets[$coin['id']] = new BitcoinWrapper($coin['wallet_type'], $coin['wallet_username'], $coin['wallet_password'], $coin['wallet_host'], $this->debug, $this->memcache);
+            }
+        }
+
+        return $wallets;
+    }
+}
+
+// Load wrappers for all known coins
+$walletRunner = new WalletRunner();
+$walletRunner->setDebug($debug);
+$walletRunner->setMysql($mysqli);
+$walletRunner->setMemcache($memcache);
+$walletRunner->setErrorCodes($aErrorCodes);
+
+$wallets = $walletRunner->runWallets();
+$wallets_arr = array_values($wallets);
+$bitcoin = $wallets_arr[0];
