@@ -413,6 +413,8 @@ class User extends Base {
 
     if (count($updatedAddresses) > 0) {
         foreach($updatedAddresses as $coin => $address) {
+            if(!$address) continue;
+
           if ($this->wallets[$coin]->can_connect($coin) === true) {
             try {
               $aStatus = $this->wallets[$coin]->validateaddress($address);
@@ -615,18 +617,20 @@ class User extends Base {
       $this->setErrorMessage( 'Password is too short, minimum of 8 characters required' );
       return false;
     }
-    if ($password1 !== $password2) {
+    /* too complex registration
+     * if ($password1 !== $password2) {
       $this->setErrorMessage( 'Password do not match' );
       return false;
-    }
+    }*/
     if (empty($email1) || !filter_var($email1, FILTER_VALIDATE_EMAIL)) {
       $this->setErrorMessage( 'Invalid e-mail address' );
       return false;
     }
-    if ($email1 !== $email2) {
+    /* too complex registration
+     * if ($email1 !== $email2) {
       $this->setErrorMessage( 'E-mail do not match' );
       return false;
-    }
+    }*/
     if (!is_numeric($pin) || strlen($pin) > 4 || strlen($pin) < 4) {
       $this->setErrorMessage( 'Invalid PIN' );
       return false;
@@ -674,8 +678,18 @@ class User extends Base {
     $username_clean = strip_tags($username);
 
     if ($this->checkStmt($stmt) && $stmt->bind_param('sssssi', $username_clean, $password_hash, $email1, $pin_hash, $apikey_hash, $is_locked) && $stmt->execute()) {
+
+        $accountId = $stmt->insert_id;
+
+        foreach($this->coin->getCoins() as $coin) {
+            $stmt = $this->mysqli->prepare("INSERT INTO account_wallets (account_id, coin) VALUES (?, ?)");
+            $this->checkStmt($stmt);
+            $stmt->bind_param('is', $accountId, $coin['id']);
+            $stmt->execute();
+        }
+
       if (! $this->setting->getValue('accounts_confirm_email_disabled') && $is_admin != 1) {
-        if ($token = $this->token->createToken('confirm_email', $stmt->insert_id)) {
+        if ($token = $this->token->createToken('confirm_email', $accountId)) {
           $aData['username'] = $username_clean;
           $aData['token'] = $token;
           $aData['email'] = $email1;
@@ -803,6 +817,7 @@ $user->setSalt(SALT);
 $user->setConfig($config);
 $user->setMail($mail);
 $user->setToken($oToken);
+$user->setCoin($oCoin);
 $user->setWallets($wallets);
 $user->setSetting($setting);
 $user->setErrorCodes($aErrorCodes);

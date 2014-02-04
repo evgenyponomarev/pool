@@ -15,12 +15,12 @@
     <fieldset>
       <label>Password</label>
       <input type="password" class="text tiny" name="password1" value="" size="15" maxlength="100" placeholder="Choose password" required>
-      <input type="password" class="text tiny" name="password2" value="" size="15" maxlength="100" placeholder="Confirm password" required>
+      {*<input type="password" class="text tiny" name="password2" value="" size="15" maxlength="100" placeholder="Confirm password" required>*}
     </fieldset>
     <fieldset>
       <label>Email</label>
       <input type="text" name="email1" class="text small" value="{$smarty.post.email1|escape|default:""}" size="15" placeholder="Enter e-mail" required>
-      <input type="text" class="text small" name="email2" value="{$smarty.post.email2|escape|default:""}" size="15" placeholder="Confirm e-mail" required>
+      {*<input type="text" class="text small" name="email2" value="{$smarty.post.email2|escape|default:""}" size="15" placeholder="Confirm e-mail" required>*}
     </fieldset>
     <fieldset>
       <label>PIN</label>
