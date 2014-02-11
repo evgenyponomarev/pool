@@ -225,8 +225,8 @@ class Block extends Base {
    * @return bool
    **/
   public function addBlock($block) {
-    $stmt = $this->mysqli->prepare("INSERT INTO $this->table (height, blockhash, confirmations, amount, difficulty, time) VALUES (?, ?, ?, ?, ?, ?)");
-    if ($this->checkStmt($stmt) && $stmt->bind_param('isiddi', $block['height'], $block['blockhash'], $block['confirmations'], $block['amount'], $block['difficulty'], $block['time']) && $stmt->execute())
+    $stmt = $this->mysqli->prepare("INSERT INTO $this->table (coin, height, blockhash, confirmations, amount, difficulty, time) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    if ($this->checkStmt($stmt) && $stmt->bind_param('sisiddi', $block['coin'], $block['height'], $block['blockhash'], $block['confirmations'], $block['amount'], $block['difficulty'], $block['time']) && $stmt->execute())
       return true;
     return $this->sqlError();
   }

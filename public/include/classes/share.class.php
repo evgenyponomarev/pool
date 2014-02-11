@@ -9,6 +9,8 @@ class Share Extends Base {
   protected $tableArchive = 'shares_archive';
   private $oUpstream;
   private $iLastUpstreamId;
+    private $oUpstreamByCoin;
+    private $iLastUpstreamIdByCoin;
   // This defines each share
   public $rem_host, $username, $our_result, $upstream_result, $reason, $solution, $time, $difficulty;
 
@@ -343,6 +345,21 @@ class Share Extends Base {
   public function getUpstreamShareId() {
     return @$this->oUpstream->id;
   }
+    public function setLastUpstreamIdByCoin($coinID) {
+        $this->iLastUpstreamIdByCoin[$coinID] = @$this->oUpstreamByCoin[$coinID]->id ? $this->oUpstreamByCoin[$coinID]->id : 0;
+    }
+    public function getLastUpstreamIdByCoin($coinID) {
+        return @$this->iLastUpstreamIdByCoin[$coinID] ? @$this->iLastUpstreamIdByCoin[$coinID] : 0;
+    }
+    public function getUpstreamFinderByCoin($coinID) {
+        return @$this->oUpstreamByCoin[$coinID]->account;
+    }
+    public function getUpstreamWorkerByCoin($coinID) {
+        return @$this->oUpstreamByCoin[$coinID]->worker;
+    }
+    public function getUpstreamShareIdByCoin($coinID) {
+        return @$this->oUpstreamByCoin[$coinID]->id;
+    }
   /**
    * Find upstream accepted share that should be valid for a specific block
    * Assumptions:
@@ -442,9 +459,9 @@ class Share Extends Base {
         // Stratum supported blockhash solution entry
         $stmt = $this->mysqli->prepare("SELECT SUBSTRING_INDEX( `username` , '.', 1 ) AS account, username as worker, id FROM $this->table WHERE solution = ? AND coin = ? LIMIT 1");
         if ($this->checkStmt($stmt) && $stmt->bind_param('ss', $aBlock['hash'], $coinID) && $stmt->execute() && $result = $stmt->get_result()) {
-            $this->oUpstream = $result->fetch_object();
+            $this->oUpstreamByCoin[$coinID] = $result->fetch_object();
             $this->share_type = 'stratum_blockhash';
-            if (!empty($this->oUpstream->account) && !empty($this->oUpstream->worker) && is_int($this->oUpstream->id))
+            if (!empty($this->oUpstreamByCoin[$coinID]->account) && !empty($this->oUpstreamByCoin[$coinID]->worker) && is_int($this->oUpstreamByCoin[$coinID]->id))
                 return true;
         }
 
@@ -452,9 +469,9 @@ class Share Extends Base {
         $scrypt_hash = swapEndian(bin2hex(Scrypt::calc($header_bin, $header_bin, 1024, 1, 1, 32)));
         $stmt = $this->mysqli->prepare("SELECT SUBSTRING_INDEX( `username` , '.', 1 ) AS account, username as worker, id FROM $this->table WHERE solution = ? AND coin = ? LIMIT 1");
         if ($this->checkStmt($stmt) && $stmt->bind_param('ss', $scrypt_hash, $coinID) && $stmt->execute() && $result = $stmt->get_result()) {
-            $this->oUpstream = $result->fetch_object();
+            $this->oUpstreamByCoin[$coinID] = $result->fetch_object();
             $this->share_type = 'stratum_solution';
-            if (!empty($this->oUpstream->account) && !empty($this->oUpstream->worker) && is_int($this->oUpstream->id))
+            if (!empty($this->oUpstreamByCoin[$coinID]->account) && !empty($this->oUpstreamByCoin[$coinID]->worker) && is_int($this->oUpstreamByCoin[$coinID]->id))
                 return true;
         }
 
@@ -463,9 +480,9 @@ class Share Extends Base {
         $ppheader = sprintf('%08d', $aBlock['version']) . word_reverse($aBlock['previousblockhash']) . word_reverse($aBlock['merkleroot']) . dechex($aBlock['time']) . $aBlock['bits'] . dechex($aBlock['nonce']);
         $stmt = $this->mysqli->prepare("SELECT SUBSTRING_INDEX( `username` , '.', 1 ) AS account, username as worker, id FROM $this->table WHERE solution LIKE CONCAT(?, '%') AND coin = ? LIMIT 1");
         if ($this->checkStmt($stmt) && $stmt->bind_param('ss', $ppheader, $coinID) && $stmt->execute() && $result = $stmt->get_result()) {
-            $this->oUpstream = $result->fetch_object();
+            $this->oUpstreamByCoin[$coinID] = $result->fetch_object();
             $this->share_type = 'pp_solution';
-            if (!empty($this->oUpstream->account) && !empty($this->oUpstream->worker) && is_int($this->oUpstream->id))
+            if (!empty($this->oUpstreamByCoin[$coinID]->account) && !empty($this->oUpstreamByCoin[$coinID]->worker) && is_int($this->oUpstreamByCoin[$coinID]->id))
                 return true;
         }
 
@@ -481,9 +498,9 @@ class Share Extends Base {
       AND coin = ?
       ORDER BY id ASC LIMIT 1");
         if ($this->checkStmt($stmt) && $stmt->bind_param('iiis', $last, $aBlock['time'], $aBlock['time'], $coinID) && $stmt->execute() && $result = $stmt->get_result()) {
-            $this->oUpstream = $result->fetch_object();
+            $this->oUpstreamByCoin[$coinID] = $result->fetch_object();
             $this->share_type = 'upstream_share';
-            if (!empty($this->oUpstream->account) && !empty($this->oUpstream->worker) && is_int($this->oUpstream->id))
+            if (!empty($this->oUpstreamByCoin[$coinID]->account) && !empty($this->oUpstreamByCoin[$coinID]->worker) && is_int($this->oUpstreamByCoin[$coinID]->id))
                 return true;
         }
 
@@ -498,9 +515,9 @@ class Share Extends Base {
       AND coin = ?
       ORDER BY id ASC LIMIT 1");
         if ($this->checkStmt($stmt) && $stmt->bind_param('iis', $last, $aBlock['time'], $coinID) && $stmt->execute() && $result = $stmt->get_result()) {
-            $this->oUpstream = $result->fetch_object();
+            $this->oUpstreamByCoin[$coinID] = $result->fetch_object();
             $this->share_type = 'any_share';
-            if (!empty($this->oUpstream->account) && !empty($this->oUpstream->worker) && is_int($this->oUpstream->id))
+            if (!empty($this->oUpstreamByCoin[$coinID]->account) && !empty($this->oUpstreamByCoin[$coinID]->worker) && is_int($this->oUpstreamByCoin[$coinID]->id))
                 return true;
         }
         $this->setErrorMessage($this->getErrorMsg('E0052', $aBlock['height']));

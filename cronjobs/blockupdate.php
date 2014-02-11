@@ -32,7 +32,7 @@ foreach($wallets as $coin => $wallet) {
     }
 
 // Fetch all unconfirmed blocks
-    $aAllBlocks = $block->getAllUnconfirmed($coin, max($config['network_confirmations'],$config['confirmations']));
+    $aAllBlocks = $block->getAllUnconfirmedCoin($coin, max($config['network_confirmations'],$config['confirmations']));
 
     $log->logInfo("ID\tHeight\tBlockhash\tConfirmations");
     foreach ($aAllBlocks as $iIndex => $aBlock) {

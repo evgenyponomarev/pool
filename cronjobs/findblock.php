@@ -53,6 +53,7 @@ foreach($wallets as $coin => $wallet) {
                 $config['reward_type'] == 'block' ? $aData['amount'] = $aData['amount'] : $aData['amount'] = $config['reward'];
                 $aData['height'] = $aBlockRPCInfo['height'];
                 $aData['difficulty'] = $aBlockRPCInfo['difficulty'];
+                $aData['coin'] = $coin;
                 $log->logInfo(substr($aData['blockhash'], 0, 15) . "...\t" .
                     $aData['height'] . "\t" .
                     $aData['amount'] . "\t" .
@@ -85,7 +86,7 @@ foreach($wallets as $coin => $wallet) {
                 // Fetch this blocks upstream ID
                 $aBlockRPCInfo = $wallet->getblock($aBlock['blockhash']);
                 if ($share->findUpstreamShareByCoin($coin, $aBlockRPCInfo, $iPreviousShareId)) {
-                    $iCurrentUpstreamId = $share->getUpstreamShareId();
+                    $iCurrentUpstreamId = $share->getUpstreamShareIdByCoin($coin);
                     // Rarely happens, but did happen once to me
                     if ($iCurrentUpstreamId == $iPreviousShareId) {
                         $log->logFatal($share->getErrorMsg('E0063'));
@@ -116,8 +117,8 @@ foreach($wallets as $coin => $wallet) {
                         $monitoring->endCronjob($cron_name, 'E0007', 0, true);
                     } else {
                         $iRoundShares = $share->getRoundSharesByCoin($coin, $iPreviousShareId, $iCurrentUpstreamId);
-                        $iAccountId = $user->getUserId($share->getUpstreamFinder());
-                        $iWorker = $share->getUpstreamWorker();
+                        $iAccountId = $user->getUserId($share->getUpstreamFinderByCoin($coin));
+                        $iWorker = $share->getUpstreamWorkerByCoin($coin);
                     }
                 } else {
                     $log->logFatal('E0005: Unable to fetch blocks upstream share, aborted:' . $share->getCronError());
