@@ -24,7 +24,7 @@ if ($user->isAuthenticated()) {
           $coinID = $_POST['coin'];
           $aCoin = $oCoin->getCoin($coinID);
 
-          $aBalance = $transaction->getBalance($_SESSION['USERDATA']['id'], $aCoin['id']);
+          $aBalance = $transaction->getBalanceCoin($_SESSION['USERDATA']['id'], $aCoin['id']);
           $dBalance = $aBalance['confirmed'];
           if ($dBalance > $config['txfee']) {
             if (!$oPayout->isPayoutActive($_SESSION['USERDATA']['id'])) {

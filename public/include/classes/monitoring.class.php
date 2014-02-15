@@ -123,6 +123,23 @@ class Monitoring extends Base {
       exit($exitCode);
     }
   }
+
+    public function sendMail($cron_name, $msgCode, $exitCode=0) {
+        $this->setStatus($cron_name . "_active", "yesno", 0);
+        $this->setStatus($cron_name . "_message", "message", $this->getErrorMsg($msgCode));
+        $this->setStatus($cron_name . "_status", "okerror", $exitCode);
+        $this->setStatus($cron_name . "_endtime", "date", time());
+        if ($mail) {
+            $aMailData = array(
+                'email' => $this->setting->getValue('system_error_email'),
+                'subject' => 'Cronjob Failure',
+                'Error Code' => $msgCode,
+                'Error Message' => $this->getErrorMsg($msgCode)
+            );
+            if (!$this->mail->sendMail('notifications/error', $aMailData))
+                $this->setErrorMessage('Failed to send mail notification');
+        }
+    }
 }
 
 $monitoring = new Monitoring();

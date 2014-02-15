@@ -301,6 +301,29 @@ class Share Extends Base {
     return $this->sqlError();
   }
 
+    public function moveArchiveByCoin($coinID, $current_upstream, $block_id, $previous_upstream=0) {
+        if ($this->config['payout_system'] != 'pplns') {
+            // We don't need archived shares that much, so only archive as much as configured
+            $sql = "
+        INSERT INTO $this->tableArchive (share_id, username, our_result, upstream_result, block_id, time, difficulty)
+          SELECT id, username, our_result, upstream_result, ?, time, IF(difficulty=0, pow(2, (" . $this->config['difficulty'] . " - 16)), difficulty) AS difficulty
+          FROM $this->table
+          WHERE id > ? AND id <= ? AND coin = ?
+            AND time >= DATE_SUB(now(), INTERVAL " . $this->config['archive']['maxage'] . " MINUTE)";
+        } else {
+            // PPLNS needs archived shares for later rounds, so we have to copy them all
+            $sql = "
+        INSERT INTO $this->tableArchive (share_id, username, our_result, upstream_result, block_id, time, difficulty)
+          SELECT id, username, our_result, upstream_result, ?, time, IF(difficulty=0, pow(2, (" . $this->config['difficulty'] . " - 16)), difficulty) AS difficulty
+          FROM $this->table
+          WHERE id > ? AND id <= ? AND coin = ?";
+        }
+        $archive_stmt = $this->mysqli->prepare($sql);
+        if ($this->checkStmt($archive_stmt) && $archive_stmt->bind_param('iiis', $block_id, $previous_upstream, $current_upstream, $coinID) && $archive_stmt->execute())
+            return true;
+        return $this->sqlError();
+    }
+
   /**
    * Delete accounted shares from shares table
    * @param current_upstream int Current highest upstream ID
@@ -326,6 +349,26 @@ class Share Extends Base {
     }
     return true;
   }
+
+    public function deleteAccountedSharesByCoin($coinID, $current_upstream, $previous_upstream=0) {
+        // Fallbacks if unset
+        if (!isset($this->config['purge']['shares'])) $this->config['purge']['shares'] = 25000;
+        if (!isset($this->config['purge']['sleep'])) $this->config['purge']['sleep'] = 1;
+
+        $affected = 1;
+        while ($affected > 0) {
+            // Sleep first to allow any IO to cleanup
+            sleep($this->config['purge']['sleep']);
+            $stmt = $this->mysqli->prepare("DELETE FROM $this->table WHERE id > ? AND id <= ? AND coin = ? LIMIT " . $this->config['purge']['shares']);
+            $start = microtime(true);
+            if ($this->checkStmt($stmt) && $stmt->bind_param('iis', $previous_upstream, $current_upstream, $coinID) && $stmt->execute()) {
+                $affected = $stmt->affected_rows;
+            } else {
+                return $this->sqlError();
+            }
+        }
+        return true;
+    }
 
   /**
    * Set/get last found share accepted by upstream: id and accounts

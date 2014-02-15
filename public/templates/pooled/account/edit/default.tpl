@@ -99,7 +99,7 @@
         <input type="password" name="authPin" size="4" maxlength="4" />
       </fieldset>
         <script type="text/javascript">
-            var balances = (typeof someVar === {nocache}{$GLOBAL.userdata.balance|escape|@json_encode}{/nocache}) ? [] : {nocache}{$GLOBAL.userdata.balance.confirmed|escape|@json_encode}{/nocache};
+            var balances = {nocache}{$GLOBAL.userdata.balance|@json_encode}{/nocache};
             var addresses = {nocache}{$PAYMENTADDRESSES|@json_encode}{/nocache};
             $("#coin_selection")
                     .change(function() {
@@ -111,7 +111,7 @@
                             if(address.coin == $("#coin_selection").val()) $("#coin_address").val(address.coin_address);
                         });
                     });
-            if(balances[0]) $("#coin_balance").val(balances[0].balance);
+            if(balances[0]) $("#coin_balance").val(balances[0].confirmed);
             if(addresses[0]) $("#coin_address").val(addresses[0].coin_address);
         </script>
 

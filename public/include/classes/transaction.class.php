@@ -249,7 +249,7 @@ class Transaction extends Base {
     $this->debug->append("STA " . __METHOD__, 4);
     $stmt = $this->mysqli->prepare("
       SELECT
-        coin,
+        b.coin,
         IFNULL(ROUND((
           SUM( IF( ( t.type IN ('Credit','Bonus') AND b.confirmations >= ? ) OR t.type = 'Credit_PPS', t.amount, 0 ) ) -
           SUM( IF( t.type IN ('Debit_MP', 'Debit_AP'), t.amount, 0 ) ) -
@@ -268,8 +268,8 @@ class Transaction extends Base {
       ON t.block_id = b.id
       WHERE t.account_id = ?
       AND archived = 0
-      GROUP BY coin
-      ORDER BY coin
+      GROUP BY b.coin
+      ORDER BY b.coin
       ");
     if ($this->checkStmt($stmt) && $stmt->bind_param("iiiii", $this->config['confirmations'], $this->config['confirmations'], $this->config['confirmations'], $this->config['confirmations'], $account_id) && $stmt->execute() && $result = $stmt->get_result())
       return $result->fetch_all(MYSQLI_ASSOC);

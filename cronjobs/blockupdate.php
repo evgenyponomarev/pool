@@ -28,7 +28,8 @@ require_once('shared.inc.php');
 foreach($wallets as $coin => $wallet) {
     if ( $wallet->can_connect() !== true ) {
         $log->logFatal("Failed to connect to RPC server\n");
-        $monitoring->endCronjob($cron_name, 'E0006', 1, true);
+        $monitoring->sendMail($cron_name, 'E0006', true);
+        continue;
     }
 
 // Fetch all unconfirmed blocks

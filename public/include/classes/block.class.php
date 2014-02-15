@@ -20,7 +20,7 @@ class Block extends Base {
 
     public function getLastByCoin($coinID) {
         $stmt = $this->mysqli->prepare("SELECT * FROM $this->table WHERE coin = ? ORDER BY height DESC LIMIT 1");
-        if ($this->checkStmt($stmt) && $stmt->bind_param("s", $coinID) && $stmt->execute() && $result = $stmt->get_result())
+        if ($this->checkStmt($stmt) && $stmt->bind_param('s', $coinID) && $stmt->execute() && $result = $stmt->get_result())
             return $result->fetch_assoc();
         return $this->sqlError();
     }
@@ -75,7 +75,7 @@ class Block extends Base {
 
     public function getLastShareIdByCoin($coinID) {
         $stmt = $this->mysqli->prepare("SELECT MAX(share_id) AS share_id FROM $this->table WHERE coin = ? LIMIT 1");
-        if ($this->checkStmt($stmt) && $stmt->bind_result("s", $coinID) && $stmt->execute() && $result = $stmt->get_result())
+        if ($this->checkStmt($stmt) && $stmt->bind_param('s', $coinID) && $stmt->execute() && $result = $stmt->get_result())
             return $result->fetch_object()->share_id;
         return $this->sqlError();
     }

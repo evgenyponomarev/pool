@@ -2,9 +2,9 @@
 // SHA/Scrypt check
 
 if (empty($config['algorithm']) || $config['algorithm'] == 'scrypt') {
-  $config['target_bits'] = 16;
+    $config['target_bits'] = 16;
 } else {
-  $config['target_bits'] = 32;
+    $config['target_bits'] = 32;
 }
 // Default classes
 require_once(CLASS_DIR . '/debug.class.php');
@@ -22,11 +22,11 @@ require_once(INCLUDE_DIR . '/lib/Mobile_Detect.php');
 
 // Detect device
 if ($detect->isMobile() && $setting->getValue('website_mobile_theme')) {
-  // Set to mobile theme
-  $setting->getValue('website_mobile_theme') ? $theme = $setting->getValue('website_mobile_theme') : $theme = 'mobile';
+    // Set to mobile theme
+    $setting->getValue('website_mobile_theme') ? $theme = $setting->getValue('website_mobile_theme') : $theme = 'mobile';
 } else {
-  // Use configured theme, fallback to default theme
-  $setting->getValue('website_theme') ? $theme = $setting->getValue('website_theme') : $theme = 'mpos';
+    // Use configured theme, fallback to default theme
+    $setting->getValue('website_theme') ? $theme = $setting->getValue('website_theme') : $theme = 'mpos';
 }
 define('THEME', $theme);
 

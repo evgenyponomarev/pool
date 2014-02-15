@@ -92,7 +92,7 @@ class jsonRPCClient {
 	 * @return array
 	 */
 	public function __call($method,$params) {
-		
+
 		// check
 		if (!is_scalar($method)) {
 			throw new Exception('Method name has no scalar value');

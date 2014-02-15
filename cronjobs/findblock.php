@@ -35,8 +35,9 @@ foreach($wallets as $coin => $wallet) {
     if ( $wallet->can_connect() === true ){
         $aTransactions = $wallet->listsinceblock($strLastBlockHash);
     } else {
-        $log->logFatal('Unable to connect to RPC server backend');
-        $monitoring->endCronjob($cron_name, 'E0006', 1, true);
+        $log->logFatal('Unable to connect to RPC server backend '.$coin);
+        $monitoring->sendMail($cron_name, 'E0006', true);
+        continue;
     }
 
 // Nothing to do so bail out
@@ -80,9 +81,11 @@ foreach($wallets as $coin => $wallet) {
         $log->logInfo("Block ID\tHeight\t\tAmount\tShare ID\tShares\tFinder\tWorker\t\tType");
         foreach ($aAllBlocks as $iIndex => $aBlock) {
             if (empty($aBlock['share_id'])) {
+
                 // Fetch share information
                 if ( !$iPreviousShareId = $block->getLastShareIdByCoin($coin))
                     $iPreviousShareId = 0;
+
                 // Fetch this blocks upstream ID
                 $aBlockRPCInfo = $wallet->getblock($aBlock['blockhash']);
                 if ($share->findUpstreamShareByCoin($coin, $aBlockRPCInfo, $iPreviousShareId)) {
@@ -90,7 +93,8 @@ foreach($wallets as $coin => $wallet) {
                     // Rarely happens, but did happen once to me
                     if ($iCurrentUpstreamId == $iPreviousShareId) {
                         $log->logFatal($share->getErrorMsg('E0063'));
-                        $monitoring->endCronjob($cron_name, 'E0063', 1, true);
+                        $monitoring->sendMail($cron_name, 'E0063', true);
+                        continue(2);
                     }
                     // Out of order share detection
                     if ($iCurrentUpstreamId < $iPreviousShareId) {
@@ -100,21 +104,24 @@ foreach($wallets as $coin => $wallet) {
                         if ( !($aShareError = $share->getShareById($aBlockError['share_id'])) || !($aShareCurrent = $share->getShareById($iCurrentUpstreamId))) {
                             // We were not able to fetch all shares that were causing this detection to trigger, bail out
                             $log->logFatal('E0002: Failed to fetch both offending shares ' . $iCurrentUpstreamId . ' and ' . $iPreviousShareId . '. Block height: ' . $aBlock['height']);
-                            $monitoring->endCronjob($cron_name, 'E0002', 1, true);
+                            $monitoring->sendMail($cron_name, 'E0002', true);
+                            continue(2);
                         }
                         // Shares seem to be out of order, so lets change them
                         if ( !$share->updateShareById($iCurrentUpstreamId, $aShareError) || !$share->updateShareById($iPreviousShareId, $aShareCurrent)) {
                             // We couldn't update one of the shares! That might mean they have been deleted already
                             $log->logFatal('E0003: Failed to change shares order: ' . $share->getCronError());
-                            $monitoring->endCronjob($cron_name, 'E0003', 1, true);
+                            $monitoring->sendMail($cron_name, 'E0003', true);
+                            continue(2);
                         }
                         // Reset our offending block so the next run re-checks the shares
                         if (!$block->setShareId($aBlockError['id'], NULL) && !$block->setFinder($aBlockError['id'], NULL) || !$block->setShares($aBlockError['id'], NULL)) {
                             $log->logFatal('E0004: Failed to reset previous block: ' . $aBlockError['height']);
                             $log->logError('Failed to reset block in database: ' . $aBlockError['height']);
-                            $monitoring->endCronjob($cron_name, 'E0004', 1, true);
+                            $monitoring->sendMail($cron_name, 'E0004', true);
+                            continue(2);
                         }
-                        $monitoring->endCronjob($cron_name, 'E0007', 0, true);
+                        $monitoring->sendMail($cron_name, 'E0007', true);
                     } else {
                         $iRoundShares = $share->getRoundSharesByCoin($coin, $iPreviousShareId, $iCurrentUpstreamId);
                         $iAccountId = $user->getUserId($share->getUpstreamFinderByCoin($coin));
@@ -122,7 +129,8 @@ foreach($wallets as $coin => $wallet) {
                     }
                 } else {
                     $log->logFatal('E0005: Unable to fetch blocks upstream share, aborted:' . $share->getCronError());
-                    $monitoring->endCronjob($cron_name, 'E0005', 1, true);
+                    $monitoring->sendMail($cron_name, 'E0005', true);
+                    continue(2);
                 }
 
                 $log->logInfo(
