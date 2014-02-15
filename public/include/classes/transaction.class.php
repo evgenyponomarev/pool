@@ -240,6 +240,24 @@ class Transaction extends Base {
     return $this->sqlError();
   }
 
+    public function getLockedBalanceByCoin($coinID) {
+        $this->debug->append("STA " . __METHOD__, 4);
+        $stmt = $this->mysqli->prepare("
+      SELECT
+        ROUND((
+          SUM( IF( ( t.type IN ('Credit','Bonus') AND b.confirmations >= ? ) OR t.type = 'Credit_PPS', t.amount, 0 ) ) -
+          SUM( IF( t.type IN ('Debit_MP', 'Debit_AP'), t.amount, 0 ) ) -
+          SUM( IF( ( t.type IN ('Donation','Fee') AND b.confirmations >= ? ) OR ( t.type IN ('Donation_PPS', 'Fee_PPS', 'TXFee') ), t.amount, 0 ) )
+        ), 8) AS balance
+      FROM $this->table AS t
+      LEFT JOIN " . $this->block->getTableName() . " AS b
+      ON t.block_id = b.id
+      WHERE archived = 0 AND b.coin = ?");
+        if ($this->checkStmt($stmt) && $stmt->bind_param('ii', $this->config['confirmations'], $this->config['confirmations'], $coinID) && $stmt->execute() && $stmt->bind_result($dBalance) && $stmt->fetch())
+            return $dBalance;
+        return $this->sqlError();
+    }
+
   /**
    * Get an accounts total balance, ignore archived entries
    * @param account_id int Account ID

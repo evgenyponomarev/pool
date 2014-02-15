@@ -3,6 +3,8 @@
 <head>
 	<meta charset="utf-8"/>
 	<title>{$GLOBAL.website.title} I {$smarty.request.page|escape|default:"home"|capitalize}</title>
+
+    <link rel="icon" type="image/png" href="{$PATH}/images/favicon.png" />
 	
 	<link rel="stylesheet" href="{$PATH}/css/layout.css" type="text/css" media="screen" />
   <link rel="stylesheet" href="{$PATH}/css/fontello.css">
