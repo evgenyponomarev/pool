@@ -30,15 +30,16 @@ if (!$smarty->isCached('master.tpl', $smarty_cache_key)) {
         }
         // Fetch unconfirmed amount from blocks table
         empty($config['network_confirmations']) ? $confirmations = 120 : $confirmations = $config['network_confirmations'];
-        $aBlocksUnconfirmed = $block->getAllUnconfirmed($confirmations);
+        $aBlocksUnconfirmed = $block->getAllUnconfirmedCoin($coin, $confirmations);
         $dBlocksUnconfirmedBalance = 0;
         if (!empty($aBlocksUnconfirmed))
             foreach ($aBlocksUnconfirmed as $aData) $dBlocksUnconfirmedBalance += $aData['amount'];
 
         // Fetch locked balance from transactions
-        $dLockedBalance = $transaction->getLockedBalance($coin);
+        $dLockedBalance = $transaction->getLockedBalanceByCoin($coin);
 
         // Cold wallet balance
+        $dColdCoins = 0;
         if (!$dColdCoins = $setting->getValue('wallet_cold_coins')) $dColdCoins = 0;
 
         $wallet_data[$coin] = array(
