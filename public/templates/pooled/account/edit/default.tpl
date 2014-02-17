@@ -103,13 +103,24 @@
             var addresses = {nocache}{$PAYMENTADDRESSES|@json_encode}{/nocache};
             $("#coin_selection")
                     .change(function() {
+                        var defaultBalance = 0;
                         $.each(balances, function(i, balance) {
-                            if(balance.coin == $("#coin_selection").val()) $("#coin_balance").val(balance.confirmed);
+                            if(balance.coin == $("#coin_selection").val()) {
+                                $("#coin_balance").val(balance.confirmed);
+                                defaultBalance = balance.confirmed;
+                            }
                         });
+                        if(!defaultBalance) $("#coin_balance").val(defaultBalance);
 
+                        var defaultAddress = '';
                         $.each(addresses, function(i, address) {
-                            if(address.coin == $("#coin_selection").val()) $("#coin_address").val(address.coin_address);
+                            if(address.coin == $("#coin_selection").val()) {
+                                $("#coin_address").val(address.coin_address);
+                                defaultAddress = address.coin_address;
+                            }
                         });
+                        if(!defaultAddress) $("#coin_address").val(defaultAddress);
+
                     });
             if(balances[0]) $("#coin_balance").val(balances[0].confirmed);
             if(addresses[0]) $("#coin_address").val(addresses[0].coin_address);
