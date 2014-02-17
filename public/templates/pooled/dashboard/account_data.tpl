@@ -20,7 +20,7 @@
     </table>
     <table class="tablesorter" cellspacing="0">
       <thead>
-        <tr><th colspan="2"><b>{$GLOBAL.config.currency} Account Balance</b></th></tr>
+        <tr><th colspan="2"><b>Account Balance</b></th></tr>
       </thead>
       <tr>
         <td align="left" style="font-weight: bold;">Confirmed</td>

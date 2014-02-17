@@ -9,13 +9,6 @@ if (!$user->isAuthenticated() || !$user->isAdmin($_SESSION['USERDATA']['id'])) {
   die("404 Page not found");
 }
 
-if ($bitcoin->can_connect() === true){
-  $aGetInfo = $bitcoin->getinfo();
-} else {
-  $aGetInfo = array('errors' => 'Unable to connect');
-  $_SESSION['POPUP'][] = array('CONTENT' => 'Unable to connect to wallet RPC service: ' . $bitcoin->can_connect(), 'TYPE' => 'errormsg');
-}
-
 // Fetch version information
 $version['CURRENT'] = array('DB' => DB_VERSION, 'CONFIG' => CONFIG_VERSION, 'CORE' => MPOS_VERSION);
 $version['INSTALLED'] = array('DB' => $setting->getValue('DB_VERSION'), 'CONFIG' => $config['version'], 'CORE' => MPOS_VERSION);
@@ -44,9 +37,6 @@ $aUserInfo = array(
   'nofees' => $user->getCountFiltered('no_fees', 1)
 );
 $smarty->assign('USER_INFO', $aUserInfo);
-
-// Wallet status
-$smarty->assign('WALLET_ERROR', $aGetInfo['errors']);
 
 // Tempalte specifics
 $smarty->assign('VERSION', $version);

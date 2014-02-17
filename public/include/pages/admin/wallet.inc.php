@@ -26,7 +26,7 @@ if (!$smarty->isCached('master.tpl', $smarty_cache_key)) {
             $aGetInfo = array('errors' => 'Unable to connect');
             $dBalance = 0;
             $dNewmint = -1;
-            $_SESSION['POPUP'][] = array('CONTENT' => 'Unable to connect to wallet RPC service: ' . $wallet->can_connect(), 'TYPE' => 'errormsg');
+            $_SESSION['POPUP'][] = array('CONTENT' => 'Unable to connect to wallet RPC service '.$coin.': ' . $wallet->can_connect(), 'TYPE' => 'errormsg');
         }
         // Fetch unconfirmed amount from blocks table
         empty($config['network_confirmations']) ? $confirmations = 120 : $confirmations = $config['network_confirmations'];

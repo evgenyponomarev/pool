@@ -32,8 +32,6 @@ if (!$smarty->isCached('master.tpl', $smarty_cache_key)) {
   // Estimated time to find the next block
   $iCurrentPoolHashrate =  $statistics->getCurrentHashrate();
 
-  // Time in seconds, not hours, using modifier in smarty to translate
-  $iCurrentPoolHashrate > 0 ? $iEstTime = $dDifficulty * pow(2,32) / ($iCurrentPoolHashrate * 1000) : $iEstTime = 0;
 
   // Time since last block
   if (!empty($aBlockData)) {
@@ -43,37 +41,24 @@ if (!$smarty->isCached('master.tpl', $smarty_cache_key)) {
     $dTimeSinceLast = 0;
   }
 
-    // Round progress
-  $iEstShares = $statistics->getEstimatedShares($dDifficulty);
-  $aRoundShares = $statistics->getRoundShares();
-  if ($iEstShares > 0 && $aRoundShares['valid'] > 0) {
-    $dEstPercent = round(100 / $iEstShares * $aRoundShares['valid'], 2);
-  } else {
-    $dEstPercent = 0;
-  }
 
   $dExpectedTimePerBlock = $statistics->getNetworkExpectedTimePerBlock();
   $dEstNextDifficulty = $statistics->getExpectedNextDifficulty();
   $iBlocksUntilDiffChange = $statistics->getBlocksUntilDiffChange();
 
   // Propagate content our template
-  $smarty->assign("ESTTIME", $iEstTime);
   $smarty->assign("TIMESINCELAST", $dTimeSinceLast);
   $smarty->assign("BLOCKSFOUND", $aBlocksFoundData);
   $smarty->assign("BLOCKLIMIT", $iLimit);
   $smarty->assign("CONTRIBSHARES", $aContributorsShares);
   $smarty->assign("CONTRIBHASHES", $aContributorsHashes);
-  $smarty->assign("CURRENTBLOCK", $iBlock);
   $smarty->assign("CURRENTBLOCKHASH", @$sBlockHash);
-  $smarty->assign('NETWORK', array('difficulty' => $dDifficulty, 'block' => $iBlock, 'EstNextDifficulty' => $dEstNextDifficulty, 'EstTimePerBlock' => $dExpectedTimePerBlock, 'BlocksUntilDiffChange' => $iBlocksUntilDiffChange));
-  $smarty->assign('ESTIMATES', array('shares' => $iEstShares, 'percent' => $dEstPercent));
   if (count($aBlockData) > 0) {
     $smarty->assign("LASTBLOCK", $aBlockData['height']);
     $smarty->assign("LASTBLOCKHASH", $aBlockData['blockhash']);
   } else {
     $smarty->assign("LASTBLOCK", 0);
   }
-  $smarty->assign("DIFFICULTY", $dDifficulty);
   $smarty->assign("REWARD", $config['reward']);
 } else {
   $debug->append('Using cached page', 3);

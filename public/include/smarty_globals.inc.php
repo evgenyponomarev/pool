@@ -7,38 +7,21 @@ if (!defined('SECURITY')) die('Hacking attempt');
 $debug->append('Global smarty variables', 3);
 
 $debug->append('No cached page detected, loading smarty globals', 3);
-// Defaults to get rid of PHP Notice warnings
-$dDifficulty = 1;
 
 // Fetch round shares
 if (!$aRoundShares = $statistics->getRoundShares()) {
   $aRoundShares = array('valid' => 0, 'invalid' => 0);
 }
 
-//lets take the first cryptocurrency
-$wallets_arr = array_values($wallets);
-$wallet = $wallets_arr[0];
-if ($wallet->can_connect() === true) {
-  $dDifficulty = $wallet->getdifficulty();
-  $dNetworkHashrate = $wallet->getnetworkhashps();
-} else {
-  $dDifficulty = 1;
-  $dNetworkHashrate = 0;
-}
-
 // Baseline pool hashrate for templates
 if ( ! $dPoolHashrateModifier = $setting->getValue('statistics_pool_hashrate_modifier') ) $dPoolHashrateModifier = 1;
 $iCurrentPoolHashrate =  $statistics->getCurrentHashrate();
-
-// Avoid confusion, ensure our nethash isn't higher than poolhash
-if ($iCurrentPoolHashrate > $dNetworkHashrate) $dNetworkHashrate = $iCurrentPoolHashrate;
 
 // Baseline network hashrate for templates
 if ( ! $dPersonalHashrateModifier = $setting->getValue('statistics_personal_hashrate_modifier') ) $dPersonalHashrateModifier = 1;
 if ( ! $dNetworkHashrateModifier = $setting->getValue('statistics_network_hashrate_modifier') ) $dNetworkHashrateModifier = 1;
 
 // Apply modifier now
-$dNetworkHashrate = $dNetworkHashrate / 1000 * $dNetworkHashrateModifier;
 $iCurrentPoolHashrate = $iCurrentPoolHashrate * $dPoolHashrateModifier;
 
 // Share rate of the entire pool
@@ -59,7 +42,6 @@ $aGlobal = array(
   'hashunits' => array( 'pool' => $aHashunits[$dPoolHashrateModifier], 'network' => $aHashunits[$dNetworkHashrateModifier], 'personal' => $aHashunits[$dPersonalHashrateModifier]),
   'hashmods' => array( 'personal' => $dPersonalHashrateModifier ),
   'hashrate' => $iCurrentPoolHashrate,
-  'nethashrate' => $dNetworkHashrate,
   'sharerate' => $iCurrentPoolShareRate,
   'workers' => $iCurrentActiveWorkers,
   'roundshares' => $aRoundShares,
