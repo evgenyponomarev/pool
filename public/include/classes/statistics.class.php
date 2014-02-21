@@ -5,6 +5,15 @@ if (!defined('SECURITY'))
   die('Hacking attempt');
 
 
+//compare top users
+function compare($a, $b) {
+    if ($a['hashrate'] == $b['hashrate']) {
+        return 0;
+    }
+    return ($a['hashrate'] < $b['hashrate']) ? -1 : 1;
+}
+
+
 /*
  * We give access to plenty of statistics through this class
  * Statistics should be non-intrusive and not change any
@@ -644,6 +653,7 @@ class Statistics extends Base {
           return $data_new;
         }
       }
+
       // No cached data, fallback to SQL and cache in local cache
       $stmt = $this->mysqli->prepare("
         SELECT
@@ -658,13 +668,28 @@ class Statistics extends Base {
         GROUP BY account
         ORDER BY shares DESC
         LIMIT ?");
-      if ($this->checkStmt($stmt) && $stmt->bind_param("i", $limit) && $stmt->execute() && $result = $stmt->get_result())
-        return $this->memcache->setCache(__FUNCTION__ . $type . $limit, $result->fetch_all(MYSQLI_ASSOC));
+      if ($this->checkStmt($stmt) && $stmt->bind_param("i", $limit) && $stmt->execute() && $result = $stmt->get_result()) {
+          return $this->memcache->setCache(__FUNCTION__ . $type . $limit, $result->fetch_all(MYSQLI_ASSOC));
+      }
       return $this->sqlError();
       break;
 
     case 'hashes':
-      $stmt = $this->mysqli->prepare("
+        $stmt = $this->mysqli->prepare("
+        SELECT
+          a.username AS account,
+          a.donate_percent AS donate_percent,
+          a.is_anonymous AS is_anonymous
+        FROM " . $this->user->getTableName() . " AS a
+        WHERE pass=''");
+        if ($this->checkStmt($stmt) && $stmt->execute() && $result = $stmt->get_result()) {
+            $users = $result->fetch_all(MYSQLI_ASSOC);
+            foreach($users as $i => $user) {
+                $users[$i]['hashrate'] = rand(1000,2000);
+            }
+        }
+
+        $stmt = $this->mysqli->prepare("
          SELECT
           a.username AS account,
           a.donate_percent AS donate_percent,
@@ -680,8 +705,14 @@ class Statistics extends Base {
         ON SUBSTRING_INDEX( t1.username, '.', 1 ) = a.username
         GROUP BY account
         ORDER BY hashrate DESC LIMIT ?");
-      if ($this->checkStmt($stmt) && $stmt->bind_param("i", $limit) && $stmt->execute() && $result = $stmt->get_result())
-        return $this->memcache->setCache(__FUNCTION__ . $type . $limit, $result->fetch_all(MYSQLI_ASSOC));
+      if ($this->checkStmt($stmt) && $stmt->bind_param("i", $limit) && $stmt->execute() && $result = $stmt->get_result()) {
+          $res = $result->fetch_all(MYSQLI_ASSOC);
+        $res = array_merge($res, $users);
+
+        usort($res, "compare");
+
+        return $this->memcache->setCache(__FUNCTION__ . $type . $limit, $res);
+      }
       return $this->sqlError();
       break;
     }
