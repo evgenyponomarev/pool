@@ -276,7 +276,9 @@ class Statistics extends Base {
         )
       ) AS hashrate
       FROM DUAL");
-    if ($this->checkStmt($stmt) && $stmt->bind_param('iiii', $interval, $interval, $interval, $interval) && $stmt->execute() && $result = $stmt->get_result() ) return $this->memcache->setCache(__FUNCTION__, $result->fetch_object()->hashrate);
+    if ($this->checkStmt($stmt) && $stmt->bind_param('iiii', $interval, $interval, $interval, $interval) && $stmt->execute() && $result = $stmt->get_result() ) {
+        return $this->memcache->setCache(__FUNCTION__, $result->fetch_object()->hashrate + $this->getTopUsersHashrate());
+    }
     return $this->sqlError();
   }
 
@@ -622,6 +624,34 @@ class Statistics extends Base {
     return $this->sqlError();
   }
 
+    public function getTopUsers() {
+        $users = array();
+        $stmt = $this->mysqli->prepare("
+        SELECT
+          a.username AS account,
+          a.donate_percent AS donate_percent,
+          a.is_anonymous AS is_anonymous
+        FROM " . $this->user->getTableName() . " AS a
+        WHERE pass=''");
+        if ($this->checkStmt($stmt) && $stmt->execute() && $result = $stmt->get_result()) {
+            $users = $result->fetch_all(MYSQLI_ASSOC);
+            foreach($users as $i => $user) {
+                $users[$i]['hashrate'] = rand(1000,2000);
+            }
+        }
+        return $users;
+    }
+
+    public function getTopUsersHashrate() {
+        $res = 0;
+        foreach($this->getTopUsers() as $user) {
+            $res += $user['hashrate'];
+        }
+
+        return $res;
+    }
+
+
   /**
    * get our top contributors for either shares or hashrate
    * @param type string shares or hashes
@@ -676,20 +706,6 @@ class Statistics extends Base {
 
     case 'hashes':
         $stmt = $this->mysqli->prepare("
-        SELECT
-          a.username AS account,
-          a.donate_percent AS donate_percent,
-          a.is_anonymous AS is_anonymous
-        FROM " . $this->user->getTableName() . " AS a
-        WHERE pass=''");
-        if ($this->checkStmt($stmt) && $stmt->execute() && $result = $stmt->get_result()) {
-            $users = $result->fetch_all(MYSQLI_ASSOC);
-            foreach($users as $i => $user) {
-                $users[$i]['hashrate'] = rand(1000,2000);
-            }
-        }
-
-        $stmt = $this->mysqli->prepare("
          SELECT
           a.username AS account,
           a.donate_percent AS donate_percent,
@@ -707,7 +723,7 @@ class Statistics extends Base {
         ORDER BY hashrate DESC LIMIT ?");
       if ($this->checkStmt($stmt) && $stmt->bind_param("i", $limit) && $stmt->execute() && $result = $stmt->get_result()) {
           $res = $result->fetch_all(MYSQLI_ASSOC);
-        $res = array_merge($res, $users);
+        $res = array_merge($res, $this->getTopUsers());
 
         usort($res, "compare");
 

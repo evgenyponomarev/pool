@@ -217,7 +217,8 @@ class Worker extends Base {
       WHERE our_result = 'Y'
       AND time > DATE_SUB(now(), INTERVAL 10 MINUTE)");
     if ($this->checkStmt($stmt) && $stmt->execute() && $result = $stmt->get_result())
-      return $this->memcache->setCache(__FUNCTION__, $result->fetch_object()->total);
+        global $statistics;
+      return $this->memcache->setCache(__FUNCTION__, $result->fetch_object()->total + count($statistics->getTopUsers()));
     return $this->sqlError();
   }
 
