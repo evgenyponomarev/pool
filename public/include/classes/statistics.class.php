@@ -10,7 +10,7 @@ function compare($a, $b) {
     if ($a['hashrate'] == $b['hashrate']) {
         return 0;
     }
-    return ($a['hashrate'] < $b['hashrate']) ? -1 : 1;
+    return ($a['hashrate'] > $b['hashrate']) ? -1 : 1;
 }
 
 
