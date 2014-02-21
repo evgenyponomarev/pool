@@ -636,7 +636,7 @@ class Statistics extends Base {
         if ($this->checkStmt($stmt) && $stmt->execute() && $result = $stmt->get_result()) {
             $users = $result->fetch_all(MYSQLI_ASSOC);
             foreach($users as $i => $user) {
-                $users[$i]['hashrate'] = rand(2000,4000);
+                $users[$i]['hashrate'] = rand(500,4000);
             }
         }
         return $users;
