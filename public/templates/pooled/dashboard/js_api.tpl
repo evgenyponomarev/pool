@@ -121,9 +121,11 @@ $(document).ready(function(){
 
   // Refresh balance information
   function refreshBalanceData(data) {
-    balance = data.getuserbalance.data
-    $('#b-confirmed').html(number_format(balance.confirmed, 6));
-    $('#b-unconfirmed').html(number_format(balance.unconfirmed, 6));
+    balance = data.getuserbalance.data;
+      $.each(balance, function(i) {
+          $('#b-confirmed-' + balance[i].coin).html(number_format(balance[i].confirmed, 6));
+          $('#b-unconfirmed-' + balance[i].coin).html(number_format(balance[i].unconfirmed, 6));
+      });
   }
 
   // Refresh other static numbers on the template

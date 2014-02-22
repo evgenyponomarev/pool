@@ -6,6 +6,7 @@
         <th align="center">Rank</th>
         <th align="right"></th>
         <th>User Name</th>
+        {if $GLOBAL.userdata.is_admin }<th>Coin</th>{/if}
         <th align="right" style="padding-right: 25px;">Shares</th>
       </tr>
     </thead>
@@ -17,6 +18,7 @@
         <td align="center">{$rank++}</td>
         <td align="right">{if $CONTRIBSHARES[shares].donate_percent > 0}<i class="icon-star-empty"></i>{/if}</td>
         <td>{if $CONTRIBSHARES[shares].is_anonymous|default:"0" == 1 && $GLOBAL.userdata.is_admin|default:"0" == 0}anonymous{else}{$CONTRIBSHARES[shares].account|escape}{/if}</td>
+        {if $GLOBAL.userdata.is_admin }<td>{$CONTRIBSHARES[shares].coin}</td>{/if}
         <td align="right" style="padding-right: 25px;">{$CONTRIBSHARES[shares].shares|number_format}</td>
       </tr>
 {/section}

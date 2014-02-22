@@ -4,6 +4,7 @@
     <thead>
       <tr>
         <th align="center">Block</th>
+        {if $GLOBAL.userdata.is_admin }<th>Coin</th>{/if}
         <th>Finder</th>
         <th align="center">Time</th>
         <th align="right" style="padding-right: 25px;">Actual Shares</th>
@@ -18,6 +19,7 @@
         {else}
         <td align="center">{$BLOCKSFOUND[block].height}</td>
         {/if}
+        {if $GLOBAL.userdata.is_admin }<td>{$BLOCKSFOUND[block].coin}</td>{/if}
         <td>{if $BLOCKSFOUND[block].is_anonymous|default:"0" == 1 && $GLOBAL.userdata.is_admin|default:"0" == 0}anonymous{else}{$BLOCKSFOUND[block].finder|default:"unknown"|escape}{/if}</td>
         <td align="center">{$BLOCKSFOUND[block].time|date_format:"%d/%m %H:%M:%S"}</td>
         <td align="right" style="padding-right: 25px;">{$BLOCKSFOUND[block].shares|number_format}</td>

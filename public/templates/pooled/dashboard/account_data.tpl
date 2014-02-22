@@ -1,4 +1,4 @@
-<article class="module width_quarter">
+<article class="module width_half">
   <header><h3>Account Information</h3></header>
     <table class="tablesorter" cellspacing="0">
       <tr>
@@ -20,17 +20,21 @@
     </table>
     <table class="tablesorter" cellspacing="0">
       <thead>
-        <tr><th colspan="2"><b>Account Balance</b></th></tr>
+        <tr>
+            <th><b>Balance</b></th>
+            <th><b>Confirmed</b></th>
+            <th><b>Unconfirmed</b></th>
+        </tr>
       </thead>
-      <tr>
-        <td align="left" style="font-weight: bold;">Confirmed</td>
-        <td align="right"><span id="b-confirmed" class="confirmed" style="width: calc(140px); font-size: 12px;">{$GLOBAL.userdata.balance.confirmed|number_format:"6"}</span></td>
-      </tr>
-      <tr>
-        <td align="left" style="font-weight: bold;">Unconfirmed</td>
-        <td align="right"><span id="b-unconfirmed" class="unconfirmed" style="width: calc(140px); font-size: 12px;">{$GLOBAL.userdata.balance.unconfirmed|number_format:"6"}</span></td>
-      </tr>
+      {section i $GLOBAL.userdata.balance}
+          <tr>
+            <td>{$GLOBAL.userdata.balance[i].coin}</td>
+            <td align="right"><span id="b-confirmed" class="confirmed" style="width: calc(140px); font-size: 12px;">{$GLOBAL.userdata.balance[i].confirmed|number_format:"6"}</span></td>
+            <td align="right"><span id="b-unconfirmed" class="unconfirmed" style="width: calc(140px); font-size: 12px;">{$GLOBAL.userdata.balance[i].unconfirmed|number_format:"6"}</span></td>
+          </tr>
+      {/section}
     </table>
+
     {if !$DISABLED_DASHBOARD and !$DISABLED_DASHBOARD_API}
     <table class="tablesorter" cellspacing="0">
      <thead>

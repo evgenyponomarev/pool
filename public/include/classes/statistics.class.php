@@ -118,7 +118,7 @@ class Statistics extends Base {
       FROM " . $this->block->getTableName() . " AS b
       LEFT JOIN " . $this->user->getTableName() . " AS a
       ON b.account_id = a.id
-      ORDER BY height DESC LIMIT ?");
+      ORDER BY time DESC LIMIT ?");
     if ($this->checkStmt($stmt) && $stmt->bind_param("i", $limit) && $stmt->execute() && $result = $stmt->get_result())
       return $this->memcache->setCache(__FUNCTION__ . $limit, $result->fetch_all(MYSQLI_ASSOC), 5);
     return $this->sqlError();
@@ -361,7 +361,8 @@ class Statistics extends Base {
         u.id AS id,
         u.donate_percent AS donate_percent,
         u.is_anonymous AS is_anonymous,
-        u.username AS username
+        u.username AS username,
+        s.coin AS coin
       FROM " . $this->share->getTableName() . " AS s,
            " . $this->user->getTableName() . " AS u
       WHERE u.username = SUBSTRING_INDEX( s.username, '.', 1 )
@@ -382,9 +383,11 @@ class Statistics extends Base {
           $data['data'][$row['id']]['invalid'] += $row['invalid'];
           $data['data'][$row['id']]['donate_percent'] = $row['donate_percent'];
           $data['data'][$row['id']]['is_anonymous'] = $row['is_anonymous'];
+          $data['data'][$row['id']]['coin'] = $row['coin'];
         }
       }
       $data['share_id'] = $this->share->getMaxShareId();
+
       return $this->memcache->setCache(STATISTICS_ALL_USER_SHARES, $data);
     }
     return $this->sqlError();
@@ -675,6 +678,7 @@ class Statistics extends Base {
           foreach ($data['data'] as $key => $aUser) {
             if ($count == $limit) break;
             $count++;
+            $data_new[$key]['coin'] = $aUser['coin'];
             $data_new[$key]['shares'] = $aUser['valid'];
             $data_new[$key]['account'] = $aUser['username'];
             $data_new[$key]['donate_percent'] = $aUser['donate_percent'];
@@ -687,6 +691,7 @@ class Statistics extends Base {
       // No cached data, fallback to SQL and cache in local cache
       $stmt = $this->mysqli->prepare("
         SELECT
+          s.coin,
           a.username AS account,
           a.donate_percent AS donate_percent,
           a.is_anonymous AS is_anonymous,
@@ -707,15 +712,16 @@ class Statistics extends Base {
     case 'hashes':
         $stmt = $this->mysqli->prepare("
          SELECT
+          tl.coin,
           a.username AS account,
           a.donate_percent AS donate_percent,
           a.is_anonymous AS is_anonymous,
           IFNULL(ROUND(SUM(t1.difficulty)  * POW(2, " . $this->config['target_bits'] . ") / 600 / 1000, 2), 0) AS hashrate
         FROM
         (
-          SELECT id, IFNULL(IF(difficulty=0, pow(2, (" . $this->config['difficulty'] . " - 16)), difficulty), 0) AS difficulty, username FROM " . $this->share->getTableName() . " WHERE time > DATE_SUB(now(), INTERVAL 10 MINUTE) AND our_result = 'Y'
+          SELECT id, coin, IFNULL(IF(difficulty=0, pow(2, (" . $this->config['difficulty'] . " - 16)), difficulty), 0) AS difficulty, username FROM " . $this->share->getTableName() . " WHERE time > DATE_SUB(now(), INTERVAL 10 MINUTE) AND our_result = 'Y'
           UNION
-          SELECT share_id, IFNULL(IF(difficulty=0, pow(2, (" . $this->config['difficulty'] . " - 16)), difficulty), 0) AS difficulty, username FROM " . $this->share->getArchiveTableName() ." WHERE time > DATE_SUB(now(), INTERVAL 10 MINUTE) AND our_result = 'Y'
+          SELECT share_id, coin, IFNULL(IF(difficulty=0, pow(2, (" . $this->config['difficulty'] . " - 16)), difficulty), 0) AS difficulty, username FROM " . $this->share->getArchiveTableName() ." WHERE time > DATE_SUB(now(), INTERVAL 10 MINUTE) AND our_result = 'Y'
         ) AS t1
         LEFT JOIN " . $this->user->getTableName() . " AS a
         ON SUBSTRING_INDEX( t1.username, '.', 1 ) = a.username
