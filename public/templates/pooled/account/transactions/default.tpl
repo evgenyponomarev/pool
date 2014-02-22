@@ -4,15 +4,23 @@
   <table class="tablesorter" cellspacing="0">
     <thead>
       <tr>
-    {foreach $SUMMARY as $type=>$total}
-        <th>{$type}</th>
-    {/foreach}
+        <th>Coin</th>
+        <th>Credit</th>
+        <th>Debit_AP</th>
+        <th>Debit_MP</th>
+        <th>Donation</th>
+        <th>TXFee</th>
       </tr>
     </thead>
     <tbody>
       <tr>
-    {foreach $SUMMARY as $type=>$total}
-        <td class="right">{$total|number_format:"8"}</td>
+    {foreach $SUMMARY as $coin=>$trans}
+        <td>{$coin}</td>
+        <td class="right">{$trans['Credit']|number_format:"8"}</td>
+        <td class="right">{$trans['Debit_AP']|number_format:"8"}</td>
+        <td class="right">{$trans['Debit_MP']|number_format:"8"}</td>
+        <td class="right">{$trans['Donation']|number_format:"8"}</td>
+        <td class="right">{$trans['TXFee']|number_format:"8"}</td>
     {/foreach}
       </tr>
     </tbody>
@@ -65,6 +73,7 @@
       <thead>
         <tr>
           <th align="center">ID</th>
+          <th>Coin</th>
           <th>Date</th>
           <th>TX Type</th>
           <th align="center">Status</th>
@@ -78,6 +87,7 @@
 {section transaction $TRANSACTIONS}
         <tr class="{cycle values="odd,even"}">
           <td align="center">{$TRANSACTIONS[transaction].id}</td>
+          <td align="center">{$TRANSACTIONS[transaction].coin}</td>
           <td>{$TRANSACTIONS[transaction].timestamp}</td>
           <td>{$TRANSACTIONS[transaction].type}</td>
           <td align="center">

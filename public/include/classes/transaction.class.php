@@ -59,7 +59,7 @@ class Transaction extends Base {
     if ($data = $this->memcache->get(__FUNCTION__ . $account_id)) return $data;
     $sql = "
       SELECT
-        SUM(t.amount) AS total, t.type AS type
+        t.coin, SUM(t.amount) AS total, t.type AS type
       FROM transactions AS t
       LEFT OUTER JOIN blocks AS b
       ON b.id = t.block_id
@@ -68,7 +68,7 @@ class Transaction extends Base {
       $sql .= " AND t.account_id = ? ";
       $this->addParam('i', $account_id);
     }
-    $sql .= " GROUP BY t.type";
+    $sql .= " GROUP BY t.type, t.coin";
     $stmt = $this->mysqli->prepare($sql);
     if (!empty($account_id)) {
       if (!($this->checkStmt($stmt) && call_user_func_array( array($stmt, 'bind_param'), $this->getParam()) && $stmt->execute()))
@@ -82,7 +82,7 @@ class Transaction extends Base {
     if ($result) {
       $aData = NULL;
       while ($row = $result->fetch_assoc()) {
-        $aData[$row['type']] = $row['total'];
+        $aData[$row['coin']][$row['type']] = $row['total'];
       }
       // Cache data for a while, query takes long on many rows
       return $this->memcache->setCache(__FUNCTION__ . $account_id, $aData, 60);
@@ -103,6 +103,7 @@ class Transaction extends Base {
     $sql = "
       SELECT
         t.id AS id,
+        t.coin as coin,
         a.username as username,
         t.type AS type,
         t.amount AS amount,
