@@ -712,7 +712,7 @@ class Statistics extends Base {
     case 'hashes':
         $stmt = $this->mysqli->prepare("
          SELECT
-          tl.coin,
+          t1.coin,
           a.username AS account,
           a.donate_percent AS donate_percent,
           a.is_anonymous AS is_anonymous,
