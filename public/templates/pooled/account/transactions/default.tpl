@@ -13,16 +13,16 @@
       </tr>
     </thead>
     <tbody>
-      <tr>
     {foreach $SUMMARY as $coin=>$trans}
+      <tr>
         <td>{$coin}</td>
         <td class="right">{$trans['Credit']|number_format:"8"}</td>
         <td class="right">{$trans['Debit_AP']|number_format:"8"}</td>
         <td class="right">{$trans['Debit_MP']|number_format:"8"}</td>
         <td class="right">{$trans['Donation']|number_format:"8"}</td>
         <td class="right">{$trans['TXFee']|number_format:"8"}</td>
-    {/foreach}
       </tr>
+    {/foreach}
     </tbody>
   </table>
 </article>
