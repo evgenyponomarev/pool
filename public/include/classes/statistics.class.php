@@ -142,7 +142,7 @@ class Statistics extends Base {
       LEFT JOIN " . $this->user->getTableName() . " AS a 
       ON b.account_id = a.id
       WHERE b.height <= ?
-      ORDER BY height DESC LIMIT ?");
+      ORDER BY time DESC LIMIT ?");
     if ($this->checkStmt($stmt) && $stmt->bind_param("ii", $iHeight, $limit) && $stmt->execute() && $result = $stmt->get_result())
       return $this->memcache->setCache(__FUNCTION__ . $iHeight . $limit, $result->fetch_all(MYSQLI_ASSOC), 5);
     return $this->sqlError();
