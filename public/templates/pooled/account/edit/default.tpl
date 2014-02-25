@@ -38,8 +38,8 @@
                   </fieldset>
                   <fieldset>
                     <label>Automatic Payout Threshold</label>
-                    <font size="1">{$GLOBAL.config.ap_threshold.min}-{$GLOBAL.config.ap_threshold.max} {$address.coin}. Set to '0' for no auto payout.</font>
-                    <input type="text" name="payoutThresholds[{$address.coin}]" value="{$smarty.request.payoutThresholds[$address.coin]|default:$address.ap_threshold|escape}" size="{$GLOBAL.config.ap_threshold.max|strlen}" maxlength="{$GLOBAL.config.ap_threshold.max|strlen}" />
+                    <font size="1">{$GLOBAL.config.ap_threshold.min}-{$COINS[$address.coin].ap_threshold_max} {$address.coin}. Set to '0' for no auto payout.</font>
+                    <input type="text" name="payoutThresholds[{$address.coin}]" value="{$smarty.request.payoutThresholds[$address.coin]|default:$address.ap_threshold|escape}" size="{$COINS[$address.coin].ap_threshold_max|strlen}" maxlength="{$COINS[$address.coin].ap_threshold_max|strlen}" />
                   </fieldset>
             </fieldset>
         {/foreach}

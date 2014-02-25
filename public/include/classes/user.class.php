@@ -373,6 +373,8 @@ class User extends Base {
     $updatedThresholds = array();
     $updatedDonates = array();
 
+    $coins = $this->coin->getCoins();
+
     // number validation checks
     foreach($thresholds as $coin => $threshold) {
         if (!is_numeric($threshold)) {
@@ -381,13 +383,13 @@ class User extends Base {
         } else if ($threshold < $this->config['ap_threshold']['min'] && $threshold != 0) {
           $this->setErrorMessage('Threshold below configured minimum of ' . $this->config['ap_threshold']['min']);
           return false;
-        } else if ($threshold > $this->config['ap_threshold']['max']) {
-          $this->setErrorMessage('Threshold above configured maximum of ' . $this->config['ap_threshold']['max']);
+        } else if ($threshold > $coins[$coin]['ap_threshold_max']) {
+          $this->setErrorMessage('Threshold above configured maximum of ' . $coins[$coin]['ap_threshold_max']);
           return false;
         }
 
         // Number sanitizer, just in case we fall through above
-        $updatedThresholds[$coin] = min($this->config['ap_threshold']['max'], max(0, floatval($threshold)));
+        $updatedThresholds[$coin] = min($coins[$coin]['ap_threshold_max'], max(0, floatval($threshold)));
     }
     foreach($donates as $coin => $donate) {
         if (!is_numeric($donate)) {

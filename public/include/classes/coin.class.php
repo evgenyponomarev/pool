@@ -8,8 +8,14 @@ class Coin Extends Base {
 
   public function getCoins() {
     $stmt = $this->mysqli->prepare("SELECT * FROM $this->table ORDER BY id");
-    if ($this->checkStmt($stmt) && $stmt->execute() && $result = $stmt->get_result())
-      return $result->fetch_all(MYSQLI_ASSOC);
+    if ($this->checkStmt($stmt) && $stmt->execute() && $result = $stmt->get_result()) {
+        $data = array();
+        foreach($result->fetch_all(MYSQLI_ASSOC) as $res) {
+            $data[$res['id']] = $res;
+        }
+
+        return $data;
+    }
     return $this->sqlError('E0050');
   }
 
